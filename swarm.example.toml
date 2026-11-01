@@ -1,0 +1,22 @@
+# Copy to swarm.toml and edit. CLI flags and SWARM_* env vars override these.
+agents = 4
+task = "Inventory the services running on the target and report their versions."
+base_url = "http://localhost:11434/v1"    # lead/orchestrator model (strong, local AMD card)
+model = "gpt-oss:20b"
+
+# Optional: run worker sub-agents' one-liner checks on a smaller model / 2nd GPU.
+# worker_base_url = "http://192.168.2.16:11434/v1"
+# worker_model = "qwen2.5-coder:3b"        # small+fast coder model; best one-liner-check throughput (~0.6s)
+# lead_agents = 1                          # agents kept on the lead model; rest use the worker
+phases = ["explore", "verify", "report"]
+max_steps = 40
+consensus = 0.6        # fraction of agents that must vote a phase done to advance
+ctx_cap_chars = 8000   # ~2K tokens of model-facing context per turn
+max_retries = 3        # malformed-JSON retries per turn
+
+[target]              # your own lab VM; key-based SSH only
+host = "192.168.1.50"
+user = "lab"
+port = 22
+key = "~/.ssh/id_lab"
+mode = "ssh"          # or "local" to run commands on this box (self-test)

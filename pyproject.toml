@@ -1,0 +1,16 @@
+[project]
+name = "swarm-harness"
+version = "0.1.0"
+description = "Multi-agent swarm harness against a local llama.cpp gpt-oss endpoint"
+requires-python = ">=3.11"
+dependencies = []                 # stdlib only: urllib for the LLM, OpenSSH for the target
+
+[project.scripts]
+swarm = "swarm.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["swarm"]

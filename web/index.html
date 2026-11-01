@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarm Harness</title>
+<style>
+  :root{
+    --bg:#0e1118; --panel:#161b26; --panel2:#1d2433; --line:#2a3344;
+    --ink:#e7ecf5; --mut:#8a97ad; --accent:#5b8cff; --accent2:#9a6bff;
+    --ok:#36c08a; --warn:#e5a53b; --bad:#e5604d;
+    --run:#5b8cff; --tool:#3bb0e5; --propose:#9a6bff; --confirm:#36c08a; --vote:#e5a53b; --note:#8a97ad;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;gap:14px;background:var(--panel);position:sticky;top:0;z-index:5}
+  header h1{font-size:15px;margin:0;letter-spacing:.3px}
+  header .dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}
+  header .dot.live{background:var(--ok);box-shadow:0 0 0 0 rgba(54,192,138,.6);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(54,192,138,.6)}70%{box-shadow:0 0 0 8px rgba(54,192,138,0)}100%{box-shadow:0 0 0 0 rgba(54,192,138,0)}}
+  .wrap{max-width:1500px;margin:0 auto;padding:16px}
+
+  /* controls */
+  .controls{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+  .controls .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .controls label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:5px}
+  .controls input,.controls textarea{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px}
+  .controls textarea{resize:vertical;min-height:46px}
+  .segs{display:flex;gap:6px;flex-wrap:wrap}
+  .seg{flex:1;text-align:center;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer;
+    background:var(--panel2);color:var(--mut);font-size:12px;user-select:none}
+  .seg.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .stepsEditor{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .steprow{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+  .srtop{display:flex;gap:8px;align-items:center}
+  .steprow .num{flex:0 0 auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;
+    font-weight:700;font-size:12px;color:#06101e;background:var(--accent)}
+  .steprow .sname{flex:0 0 150px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px}
+  .steprow .sobj{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font-size:13px}
+  .steprow .rm{flex:0 0 auto;background:var(--panel2);border:1px solid var(--line);color:var(--mut);border-radius:8px;
+    width:30px;height:34px;cursor:pointer;font-size:15px}
+  .steprow .rm:hover{color:var(--bad);border-color:var(--bad)}
+  .stools{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-left:34px;align-items:center}
+  .stools .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .tchip{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut);cursor:pointer;user-select:none}
+  .tchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .addstep{margin-top:4px;background:var(--panel2);border:1px dashed var(--line);color:var(--mut);
+    border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px}
+  .addstep:hover{color:var(--accent);border-color:var(--accent)}
+  .wstat{font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px}
+  .wstat.ok{color:var(--ok)} .wstat.bad{color:var(--warn)}
+  .btnrow{display:flex;gap:10px;margin-top:14px;align-items:center}
+  button.act{border:0;border-radius:8px;padding:10px 20px;font-weight:600;font-size:14px;cursor:pointer}
+  #start{background:var(--accent);color:#fff}
+  #stop{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  #clear{background:transparent;color:var(--mut);border:1px solid var(--line);margin-left:auto}
+  #clear:hover{color:var(--ink);border-color:var(--mut)}
+  button.act:disabled{opacity:.45;cursor:not-allowed}
+  #err{color:var(--bad);font-size:13px}
+
+  /* task banner */
+  .task{background:linear-gradient(135deg,#1b2436,#231b36);border:1px solid var(--line);
+    border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;gap:16px;align-items:center}
+  .task .lbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--mut)}
+  .task .txt{font-size:18px;font-weight:600}
+  .task .meta{margin-left:auto;text-align:right;color:var(--mut);font-size:12px;white-space:nowrap}
+
+  /* agent grid */
+  .agents{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .agent{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;
+    overflow:hidden;min-height:230px;transition:border-color .2s,box-shadow .2s}
+  .agent.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 6px 24px -12px var(--accent)}
+  .agent .top{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .agent .avatar{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-weight:700;color:#fff;font-size:12px}
+  .agent .name{font-weight:600}
+  .rolebadge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:999px;margin-left:2px}
+  .rolebadge.lead{background:rgba(91,140,255,.18);color:var(--accent);border:1px solid var(--accent)}
+  .rolebadge.worker{background:rgba(59,176,229,.15);color:var(--tool);border:1px solid var(--tool)}
+  .agent .st{margin-left:auto;font-size:11px;color:var(--mut);display:flex;align-items:center;gap:6px}
+  .agent .st .d{width:7px;height:7px;border-radius:50%;background:var(--mut)}
+  .agent.active .st .d{background:var(--accent);animation:pulse 1.2s infinite}
+  .agent .feed{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-height:360px}
+  .agent .feed::-webkit-scrollbar{width:8px}.agent .feed::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .item{border-left:3px solid var(--line);padding:4px 0 4px 9px}
+  .item .hd{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+  .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:999px;color:#06101e}
+  .b-run{background:var(--run)}.b-tool{background:var(--tool)}.b-propose{background:var(--propose)}.b-confirm{background:var(--confirm)}
+  .b-vote{background:var(--vote)}.b-note{background:var(--note)}
+  .item .step{font-size:11px;color:var(--mut);margin-left:auto}
+  .item .reason{color:var(--mut);font-size:12px}
+  .item .cmd{margin-top:4px;background:#0a0e16;border:1px solid var(--line);border-radius:6px;padding:5px 8px;
+    font-size:12px;white-space:pre-wrap;word-break:break-word}
+  .item .res{margin-top:4px;font-size:12px;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .item .res.ok{color:var(--ok)} .item .res.bad{color:var(--bad)}
+  .thinking{color:var(--mut);font-style:italic;font-size:12px;display:flex;align-items:center;gap:6px}
+  .thinking .d{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite}
+
+  /* consensus */
+  .consensus{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .consensus h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
+  .phases{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .ph{flex:1;min-width:120px;border:1px solid var(--line);border-radius:8px;padding:9px 12px;text-align:center;background:var(--panel2);color:var(--mut)}
+  .ph.cur{border-color:var(--accent);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent)}
+  .ph.done{border-color:var(--ok);color:var(--ok);background:rgba(54,192,138,.08)}
+  .ph .pn{font-weight:600;text-transform:capitalize}.ph .pv{font-size:11px;margin-top:2px}
+  .props{display:flex;flex-direction:column;gap:7px}
+  .prop{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
+  .prop .pid{font-family:ui-monospace,monospace;font-size:11px;color:var(--mut)}
+  .prop .claim{flex:1}
+  .prop .tag{font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:999px}
+  .prop .tag.unconf{background:var(--panel);color:var(--warn);border:1px solid var(--warn)}
+  .prop .tag.conf{background:rgba(54,192,138,.14);color:var(--ok);border:1px solid var(--ok)}
+  .empty{color:var(--mut);font-size:13px}
+  .summary{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:none}
+  .summary.show{display:block}
+  .summary.good{border-color:var(--ok)} .summary.bad{border-color:var(--warn)}
+  .summary b{color:var(--ink)}
+
+  /* phase gate */
+  .gate{margin-bottom:16px;background:linear-gradient(135deg,#2a2410,#2a1e10);border:1px solid var(--warn);
+    border-radius:12px;padding:16px 18px;box-shadow:0 0 0 1px rgba(229,165,59,.25),0 8px 30px -14px var(--warn);
+    animation:gatein .25s ease}
+  @keyframes gatein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .gate .gk{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--warn);font-weight:700;margin-bottom:4px}
+  .gate .gtext{font-size:18px;font-weight:700;color:var(--ink)}
+  .gsteps{display:flex;align-items:center;gap:12px;margin:14px 0}
+  .gstep{flex:0 0 auto;border:1px solid var(--line);border-radius:9px;padding:10px 16px;background:var(--panel2);text-align:center}
+  .gstep .gl{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .gstep .gn{font-weight:700;text-transform:capitalize;font-size:15px}
+  .gstep.from{border-color:var(--ok);color:var(--ok)} .gstep.from .gn{color:var(--ok)}
+  .gstep.to{border-color:var(--warn)} .gstep.to .gn{color:var(--warn)}
+  .gstep .gobj{font-size:11px;color:var(--mut);margin-top:3px;max-width:240px}
+  .garrow{font-size:20px;color:var(--warn);font-weight:800}
+  .gbtns{display:flex;gap:10px}
+  #approve{background:var(--ok);color:#06101e}
+  #gateStop{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+
+  /* hive mind */
+  .hive{margin-bottom:16px;background:linear-gradient(135deg,#141b2b,#191528);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .hive h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
+  .hivegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .hcard{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;animation:gatein .25s ease}
+  .hcard.confirmed{border-color:var(--ok);box-shadow:inset 0 0 0 1px rgba(54,192,138,.25)}
+  .htop{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .havatar{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-weight:700;color:#fff;font-size:11px}
+  .hby{font-size:12px;color:var(--mut)} .hby{font-weight:600}
+  .hpid{margin-left:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--mut)}
+  .hclaim{font-size:14px;font-weight:600;line-height:1.35;margin-bottom:8px}
+  .hstatus{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  .hpill{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:999px}
+  .hpill.unconf{color:var(--warn);border:1px solid var(--warn)}
+  .hpill.conf{color:var(--ok);border:1px solid var(--ok);background:rgba(54,192,138,.12)}
+  .hchip{font-size:10px;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:2px 7px}
+
+  /* final results */
+  .results{margin-bottom:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .results h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
+  .results.good{border-color:var(--ok);box-shadow:0 0 0 1px rgba(54,192,138,.3)}
+  .results.bad{border-color:var(--warn)}
+  .verdict{font-size:19px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+  .verdict .ic{font-size:22px}
+  .results.good .verdict{color:var(--ok)} .results.bad .verdict{color:var(--warn)}
+  .finding{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);
+    border-radius:9px;background:var(--panel2);margin-bottom:8px}
+  .finding .ck{color:var(--ok);font-weight:800;font-size:16px;line-height:1.3}
+  .finding .body .claim{font-weight:600;font-size:15px}
+  .finding .body .who{color:var(--mut);font-size:12px;margin-top:2px}
+  .runstats{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--mut)}
+  .stat b{color:var(--ink);font-size:15px;display:block;margin-top:1px}
+  .unconf-list{margin-top:10px;color:var(--mut);font-size:12.5px}
+  .unconf-list .u{display:inline-block;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;margin:3px 4px 0 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="dot" id="livedot"></div>
+  <h1>SWARM · live brainstorming</h1>
+  <div style="margin-left:auto;color:var(--mut);font-size:12px" id="hstat">idle</div>
+</header>
+
+<div class="wrap">
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="grid">
+      <div style="grid-column:1/-1">
+        <label>Overall task (shared context for all agents)</label>
+        <textarea id="task" placeholder="What ports are open and what runs on them">What ports are open and what runs on them</textarea>
+      </div>
+      <div>
+        <label>Mode</label>
+        <div class="segs" id="mode">
+          <div class="seg on" data-v="external">external</div>
+          <div class="seg" data-v="local">local</div>
+          <div class="seg" data-v="ssh">ssh</div>
+        </div>
+      </div>
+      <div>
+        <label>Agents</label>
+        <input id="agents" type="number" min="1" max="12" value="4">
+      </div>
+      <div>
+        <label>Target host</label>
+        <input id="target" placeholder="192.168.2.14" value="192.168.2.14">
+      </div>
+      <div>
+        <label>Max steps / agent</label>
+        <input id="max_steps" type="number" min="1" value="20">
+      </div>
+      <div>
+        <label>Model endpoint (Ollama)</label>
+        <input id="base_url" value="http://localhost:11434/v1">
+      </div>
+      <div>
+        <label>Model name</label>
+        <input id="model_name" value="gpt-oss:20b">
+      </div>
+      <div>
+        <label>Worker endpoint (2nd GPU) <span id="workerStatus" class="wstat"></span></label>
+        <div style="display:flex;gap:6px">
+          <input id="worker_base_url" value="http://192.168.2.16:11434/v1" style="flex:1">
+          <button type="button" class="addstep" id="checkWorker" style="margin:0;white-space:nowrap">↻ check</button>
+        </div>
+      </div>
+      <div>
+        <label>Worker model (small)</label>
+        <input id="worker_model" value="qwen2.5-coder:3b" placeholder="e.g. qwen2.5-coder:3b" list="workerModels">
+        <datalist id="workerModels"></datalist>
+      </div>
+      <div>
+        <label>Lead agents (on AMD)</label>
+        <input id="lead_agents" type="number" min="1" value="1">
+      </div>
+      <div class="ssh-only" style="display:none">
+        <label>SSH user</label>
+        <input id="target_user" placeholder="lab">
+      </div>
+      <div class="ssh-only" style="display:none">
+        <label>SSH key path</label>
+        <input id="target_key" placeholder="~/.ssh/id_lab">
+      </div>
+    </div>
+    <div class="stepsEditor">
+      <label>Steps — each runs in order; give each its own objective. The swarm pauses for your approval between steps.</label>
+      <div id="steps"></div>
+      <button type="button" class="addstep" id="addStep">+ Add step</button>
+    </div>
+    <div class="btnrow">
+      <button class="act" id="start">▶ Start swarm</button>
+      <button class="act" id="stop" disabled>■ Stop</button>
+      <button class="act" id="clear">⌫ Clear session</button>
+      <span id="err"></span>
+    </div>
+  </div>
+
+  <!-- TASK BANNER -->
+  <div class="task" id="taskbanner" style="display:none">
+    <div>
+      <div class="lbl">Task</div>
+      <div class="txt" id="taskText">—</div>
+    </div>
+    <div class="meta" id="taskMeta"></div>
+  </div>
+
+  <!-- FINAL RESULTS -->
+  <div class="results" id="results" style="display:none">
+    <h2>Final task results</h2>
+    <div class="verdict" id="verdict"></div>
+    <div id="findings"></div>
+    <div class="runstats" id="runstats"></div>
+  </div>
+
+  <!-- PHASE GATE (human-in-the-loop: "move to next step?") -->
+  <div class="gate" id="gate" style="display:none">
+    <div class="gq">
+      <div class="gk">Checkpoint — awaiting your approval</div>
+      <div class="gtext" id="gateText">Should I move to the next step?</div>
+    </div>
+    <div class="gsteps" id="gateSteps"></div>
+    <div class="gbtns">
+      <button class="act" id="approve">✓ Yes, move to next step</button>
+      <button class="act" id="gateStop">■ Stop here</button>
+    </div>
+  </div>
+
+  <!-- HIVE MIND (shared findings board) -->
+  <div class="hive" id="hiveWrap" style="display:none">
+    <h2>🧠 Hive mind — shared findings</h2>
+    <div class="hivegrid" id="hive"><div class="empty">Findings appear here as agents post them, shared across the whole swarm.</div></div>
+  </div>
+
+  <!-- AGENTS -->
+  <div class="agents" id="agentgrid"></div>
+
+  <!-- CONSENSUS -->
+  <div class="consensus" id="consensusWrap" style="display:none">
+    <h2>Group consensus</h2>
+    <div class="phases" id="phasebar"></div>
+    <div class="props" id="props"><div class="empty">No proposals yet — agents are still exploring.</div></div>
+    <div class="summary" id="summary"></div>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (t,c,txt)=>{const e=document.createElement(t); if(c)e.className=c; if(txt!=null)e.textContent=txt; return e;};
+const AV_COLORS = ['#5b8cff','#9a6bff','#36c08a','#e5a53b','#e5604d','#3bb0e5','#e36bb0','#7bd84f','#d87b4f','#4f7bd8','#b04fd8','#d8cf4f'];
+
+let mode='external';
+$('#mode').addEventListener('click',e=>{
+  const s=e.target.closest('.seg'); if(!s)return;
+  mode=s.dataset.v;
+  [...$('#mode').children].forEach(x=>x.classList.toggle('on',x===s));
+  document.querySelectorAll('.ssh-only').forEach(x=>x.style.display = mode==='ssh'?'':'none');
+});
+
+/* steps editor — each step has a name, its own objective, and its own tools */
+const DEFAULT_STEPS=[
+  {name:'explore', task:'Find what ports are open on the target'},
+  {name:'verify',  task:'Confirm the open ports and identify the service on each'},
+];
+let TOOLS=[];
+function toolChips(selected){
+  const wrap=el('div','stools'); wrap.append(el('span','lbl','tools:'));
+  TOOLS.forEach(t=>{
+    const c=el('span','tchip'+(selected.has(t.name)?' on':''), t.name);
+    c.title=t.description+' — args: '+t.params.join(', ');
+    c.onclick=()=>c.classList.toggle('on'); wrap.append(c);
+  });
+  if(!TOOLS.length) wrap.append(el('span',null,'(loading…)'));
+  return wrap;
+}
+function addStepRow(step){
+  const row=el('div','steprow');
+  const top=el('div','srtop');
+  const n=$('#steps').children.length+1;
+  top.append(el('div','num',String(n)));
+  const name=el('input','sname'); name.placeholder='step name'; name.value=(step&&step.name)||'step'+n;
+  const obj=el('input','sobj'); obj.placeholder='objective for this step'; obj.value=(step&&step.task)||'';
+  const rm=el('button','rm','×'); rm.type='button';
+  rm.onclick=()=>{ if($('#steps').children.length>1){ row.remove(); renumberSteps(); } };
+  top.append(name,obj,rm); row.append(top);
+  const sel = step&&step.tools ? new Set(step.tools) : new Set(TOOLS.map(t=>t.name)); // default: all tools
+  row.append(toolChips(sel));
+  $('#steps').append(row);
+}
+function renumberSteps(){ [...$('#steps').children].forEach((r,i)=>r.querySelector('.num').textContent=String(i+1)); }
+function collectSteps(){
+  return [...$('#steps').children].map(r=>({
+    name:r.querySelector('.sname').value.trim(),
+    task:r.querySelector('.sobj').value.trim(),
+    tools:[...r.querySelectorAll('.tchip.on')].map(c=>c.textContent),
+  })).filter(s=>s.name);
+}
+$('#addStep').addEventListener('click', ()=>addStepRow());
+fetch('/tools').then(r=>r.json()).then(t=>{TOOLS=t; DEFAULT_STEPS.forEach(addStepRow);})
+  .catch(()=>DEFAULT_STEPS.forEach(addStepRow));
+
+/* worker endpoint: check reachability + list its models into the picker */
+function checkWorker(){
+  const url=$('#worker_base_url').value.trim();
+  const s=$('#workerStatus');
+  if(!url){ s.textContent=''; return; }
+  s.textContent='checking…'; s.className='wstat';
+  fetch('/worker_models?url='+encodeURIComponent(url)).then(r=>r.json()).then(j=>{
+    if(j.ok){
+      s.textContent='✓ reachable · '+j.models.length+' models'; s.className='wstat ok';
+      const dl=$('#workerModels'); dl.innerHTML='';
+      j.models.forEach(m=>{const o=document.createElement('option');o.value=m;dl.append(o);});
+      if(!$('#worker_model').value && j.models.length){
+        const chat=j.models.filter(m=>!/embed/i.test(m));           // skip embedding models
+        const sz=m=>{const x=/(\d+(?:\.\d+)?)\s*b/i.exec(m); return x?parseFloat(x[1]):999;};
+        const small=chat.slice().sort((a,b)=>sz(a)-sz(b))[0]||j.models[0];  // smallest = fastest for checks
+        $('#worker_model').value=small;
+      }
+    } else {
+      s.textContent='✗ '+(j.hint||j.error||'unreachable'); s.className='wstat bad'; s.title=j.error||'';
+    }
+  }).catch(e=>{ s.textContent='✗ check failed'; s.className='wstat bad'; });
+}
+$('#checkWorker').addEventListener('click', checkWorker);
+$('#worker_base_url').addEventListener('change', checkWorker);
+checkWorker();   // probe on load so the picker fills if the worker is already up
+
+let agents={}, props={}, phases=[], phaseIdx=0, votes={}, es=null;
+
+function resetView(cfg){
+  agents={}; props={}; phases=cfg.phases.slice(); phaseIdx=0; votes={};
+  $('#agentgrid').innerHTML=''; $('#props').innerHTML='';
+  $('#taskbanner').style.display='flex'; $('#consensusWrap').style.display='block';
+  $('#results').style.display='none'; $('#gate').style.display='none';
+  hive={}; $('#hiveWrap').style.display='block';
+  $('#hive').innerHTML='<div class="empty">Findings appear here as agents post them, shared across the whole swarm.</div>';
+  $('#taskText').textContent = cfg.task || '(no task)';
+  $('#taskMeta').innerHTML = `${cfg.agents} agents · ${mode} · ${cfg.target_mode||mode}<br>${cfg.model} @ ${cfg.base_url.replace('http://','')}`;
+  $('#summary').className='summary';
+  for(let i=0;i<cfg.agents;i++) makeAgent('agent-'+i,i);
+  renderPhases();
+}
+
+function makeAgent(id,i){
+  const card=el('div','agent'); card.id='card-'+id;
+  const top=el('div','top');
+  const av=el('div','avatar',String(i)); av.style.background=AV_COLORS[i%AV_COLORS.length];
+  const nm=el('div','name',id);
+  const rolebadge=el('span','rolebadge'); rolebadge.style.display='none';
+  top.append(av, nm, rolebadge);
+  const st=el('div','st'); st.append(el('span','d'), el('span','lbl','waiting')); top.append(st);
+  const feed=el('div','feed');
+  feed.append(thinkingRow());
+  card.append(top,feed); $('#agentgrid').append(card);
+  agents[id]={card,feed,st:st.querySelector('.lbl'),role:rolebadge};
+}
+function applyRoster(list){
+  (list||[]).forEach(r=>{
+    const a=agents[r.id]; if(!a)return;
+    a.role.style.display='inline-block';
+    a.role.className='rolebadge '+(r.role==='worker'?'worker':'lead');
+    a.role.textContent=r.role;
+    a.role.title=r.model;
+    a.card.title=r.role+' · '+r.model;
+  });
+}
+function thinkingRow(){const t=el('div','thinking'); t.append(el('span','d'), el('span',null,'thinking…')); t.dataset.think='1'; return t;}
+
+function flashActive(id){
+  const a=agents[id]; if(!a)return;
+  a.card.classList.add('active');
+  clearTimeout(a._t); a._t=setTimeout(()=>a.card.classList.remove('active'),1500);
+}
+
+function addItem(id,ev){
+  const a=agents[id]; if(!a)return;
+  const feed=a.feed;
+  const think=feed.querySelector('[data-think]'); if(think)think.remove();
+  const it=el('div','item'); it.style.borderLeftColor=`var(--${ev.action})`;
+  const hd=el('div','hd');
+  const b=el('span','badge b-'+ev.action, ev.action); hd.append(b);
+  hd.append(el('span','step','step '+ev.step+' · '+ev.phase));
+  it.append(hd);
+  if(ev.reason) it.append(el('div','reason', ev.reason));
+  const r=ev.result||{};
+  if(ev.action==='run'||ev.action==='tool'||ev.action==='confirm'){
+    if(r.tool) it.append(el('div','reason','🔧 '+r.tool+(r.error?' — '+r.error:'')));
+    if(r.cmd) it.append(el('div','cmd','$ '+r.cmd));
+    const digest = r.digest!=null ? r.digest : (r.status||'');
+    if(digest){
+      const rc = r.rc;
+      const cls = (rc===0 || r.supports===true) ? 'ok' : (rc!=null&&rc!==0)||r.supports===false ? 'bad' : '';
+      it.append(el('div','res '+cls, digest));
+    }
+    if(ev.action==='confirm' && r.status && r.status!==digest)
+      it.append(el('div','res '+(r.supports?'ok':'bad'), (r.supports?'✓ ':'✗ ')+r.status));
+  } else if(ev.action==='propose'){
+    it.append(el('div','res', '💡 '+(r.claim||'')));
+    addProposal(r.proposal_id, r.claim, id);
+  } else if(ev.action==='vote'){
+    it.append(el('div','res '+(r.vote?'ok':''), r.vote?'✔ votes phase done':'✘ not yet'));
+    recordVote(id, r.vote, r.phase_advanced);
+  } else if(ev.action==='confirm'){
+  }
+  if(ev.action==='confirm') updateProposal(r.target_proposal, r.supports, id, r.status);
+  a.st.textContent = ev.action;
+  feed.append(it);
+  feed.append(thinkingRow());
+  feed.scrollTop=feed.scrollHeight;
+  flashActive(id);
+}
+
+/* consensus */
+function renderPhases(){
+  const box=$('#phasebar'); box.innerHTML='';
+  phases.forEach((p,i)=>{
+    const d=el('div','ph'+(i<phaseIdx?' done':i===phaseIdx?' cur':''));
+    d.append(el('div','pn',p));
+    const v = votes[p] ? votes[p].size : 0;
+    d.append(el('div','pv', i<phaseIdx?'✓ cleared':`${v} vote${v===1?'':'s'}`));
+    box.append(d);
+  });
+}
+function recordVote(id,done,advanced){
+  const p=phases[phaseIdx]||'_'; votes[p]=votes[p]||new Set();
+  if(done)votes[p].add(id); else votes[p].delete(id);
+  if(advanced && phaseIdx<phases.length) phaseIdx++;
+  renderPhases();
+}
+function addProposal(pid,claim,by){
+  if(!pid||props[pid])return;
+  const empty=$('#props .empty'); if(empty)empty.remove();
+  const row=el('div','prop'); row.id='prop-'+pid;
+  row.append(el('span','pid',pid));
+  row.append(el('span','claim',claim||''));
+  const tag=el('span','tag unconf','unconfirmed'); row.append(tag);
+  $('#props').append(row); props[pid]={row,tag,confirmed:false};
+  addHive(pid, claim, by);
+}
+function updateProposal(pid,supports,by,status){
+  const p=props[pid]; if(!p)return;
+  // Only the backend's "CONFIRMED" status counts — a self-confirm or failed check does not.
+  const counted = supports && /CONFIRMED/i.test(status||'');
+  if(counted && !p.confirmed){ p.confirmed=true; p.tag.className='tag conf'; p.tag.textContent='confirmed ✓'; }
+  if(counted) hiveConfirm(pid, by);
+}
+
+/* hive mind — a live shared board of findings as agents post them */
+let hive={};
+function agentIdx(id){ const m=/agent-(\d+)/.exec(id||''); return m?+m[1]:0; }
+function addHive(pid, claim, by){
+  if(!pid || hive[pid]) return;
+  const empty=$('#hive .empty'); if(empty)empty.remove();
+  const card=el('div','hcard');
+  const top=el('div','htop');
+  const av=el('div','havatar',String(agentIdx(by))); av.style.background=AV_COLORS[agentIdx(by)%AV_COLORS.length];
+  top.append(av, el('div','hby', by+' found'));
+  top.append(el('div','hpid',pid));
+  card.append(top);
+  card.append(el('div','hclaim', claim||''));
+  const status=el('div','hstatus'); status.append(el('span','hpill unconf','awaiting confirmation'));
+  card.append(status);
+  $('#hive').append(card);
+  hive[pid]={card,status,confirmers:new Set()};
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function hiveConfirm(pid, by){
+  const h=hive[pid]; if(!h||!by||h.confirmers.has(by))return;
+  h.confirmers.add(by);
+  h.card.classList.add('confirmed');
+  h.status.innerHTML='';
+  h.status.append(el('span','hpill conf','✓ confirmed'));
+  [...h.confirmers].forEach(a=>{const c=el('span','hchip',a);
+    c.style.borderColor=AV_COLORS[agentIdx(a)%AV_COLORS.length]; h.status.append(c);});
+}
+
+let taskText='';
+function onEvent(ev){
+  if(ev.event==='run_start'){ taskText=ev.config.task||''; resetView(ev.config); setLive(true); return; }
+  if(ev.event==='tools'){ showTools(ev.available||[]); return; }
+  if(ev.event==='roster'){ applyRoster(ev.agents); return; }
+  if(ev.event==='worker_unreachable'){ $('#err').textContent='⚠ worker model unreachable ('+(ev.detail||'')+') — using lead model for all agents'; return; }
+  if(ev.event==='phase_gate'){ showGate(ev); return; }
+  if(ev.event==='phase_advanced'){ clearGate(); advancePhase(ev); return; }
+  if(ev.event==='run_error'){ $('#err').textContent='⚠ '+(ev.error||ev.detail||'run error'); return; }
+  if(ev.event==='run_end'){ clearGate(); showSummary(ev); showResults(ev); return; }
+  if(ev.event==='eos'){ setLive(false); if(es){es.close();es=null;} return; }
+  if(ev.agent && ev.action) addItem(ev.agent, ev);
+}
+function showGate(ev){
+  const g=$('#gate'); g.style.display='block';
+  $('#gateText').textContent = ev.question || `Should I move to '${ev.to}'?`;
+  const steps=$('#gateSteps'); steps.innerHTML='';
+  const mk=(lbl,name,cls,obj)=>{const d=el('div','gstep '+cls);d.append(el('div','gl',lbl));d.append(el('div','gn',name));
+    if(obj){const o=el('div','gobj',obj);d.append(o);} return d;};
+  steps.append(mk('completed', ev.from, 'from'));
+  steps.append(el('div','garrow','→'));
+  steps.append(mk(ev.to==='complete'?'finish':'next step', ev.to, 'to', ev.to_task||''));
+  $('#hstat').textContent='paused — awaiting approval';
+  g.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function clearGate(){ $('#gate').style.display='none'; $('#hstat').textContent='running'; }
+function advancePhase(ev){
+  if(ev.done){ phaseIdx=phases.length; } else if(phaseIdx<phases.length) phaseIdx++;
+  renderPhases();
+}
+let toolsAvail=[];
+function showTools(t){ toolsAvail=t; const m=$('#taskMeta');
+  if(m && t.length) m.innerHTML += `<br><span style="color:var(--mut)">tools: ${t.join(', ')}</span>`; }
+function showSummary(s){
+  const box=$('#summary');
+  box.className='summary show '+(s.all_phases_done?'good':'bad');
+  box.innerHTML = `<b>Run ${s.stopped?'stopped':'finished'}</b> in ${s.wall_s}s · `+
+    `phases ${s.phases_cleared}/${s.phases_total} · proposals ${s.proposals} `+
+    `(<b>${s.confirmed} confirmed</b>) · turns ${s.total_turns} · retry-rate ${s.retry_rate}`;
+}
+function showResults(s){
+  const box=$('#results'); const findings=s.findings||[]; const good=findings.length>0;
+  box.style.display='block'; box.className='results '+(good?'good':'bad');
+  const v=$('#verdict');
+  v.innerHTML = good
+    ? `<span class="ic">✓</span><span>Task accomplished — ${findings.length} finding${findings.length>1?'s':''} confirmed by consensus</span>`
+    : `<span class="ic">⚠</span><span>${s.stopped?'Stopped':'Ended'} without a consensus-confirmed finding</span>`;
+  const f=$('#findings'); f.innerHTML='';
+  if(taskText){ const t=el('div',null); t.style.cssText='color:var(--mut);font-size:12px;margin-bottom:10px';
+    t.innerHTML='for task: <span style="color:var(--ink)">'+esc(taskText)+'</span>'; f.append(t); }
+  findings.forEach(x=>{
+    const row=el('div','finding');
+    row.append(el('span','ck','✓'));
+    const body=el('div','body'); body.append(el('div','claim',x.claim));
+    body.append(el('div','who',`proposed by ${x.by} · confirmed by ${(x.confirmed_by||[]).join(', ')||'—'}`));
+    row.append(body); f.append(row);
+  });
+  if(!findings.length) f.append(el('div','empty','No claim was independently confirmed by a second agent.'));
+  const un=s.unconfirmed||[];
+  if(un.length){ const u=el('div','unconf-list'); u.append(el('span',null,'Unconfirmed (not agreed): '));
+    un.forEach(x=>u.append(el('span','u',x.claim))); f.append(u); }
+  const st=$('#runstats'); st.innerHTML='';
+  const stats=[['phases',`${s.phases_cleared}/${s.phases_total}`],['proposals',s.proposals],
+    ['confirmed',s.confirmed],['turns',s.total_turns],['retry-rate',s.retry_rate],['time',s.wall_s+'s']];
+  stats.forEach(([k,val])=>{const d=el('div','stat',k); d.append(el('b',null,String(val))); st.append(d);});
+  box.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function setLive(on){
+  $('#livedot').classList.toggle('live',on);
+  $('#hstat').textContent = on?'running':'idle';
+  $('#start').disabled=on; $('#stop').disabled=!on;
+  if(on)$('#err').textContent='';
+}
+
+function connect(){ if(es)return; es=new EventSource('/stream'); es.onmessage=e=>{try{onEvent(JSON.parse(e.data))}catch(_){} }; es.onerror=()=>{}; }
+
+$('#start').addEventListener('click', async ()=>{
+  $('#err').textContent='';
+  const payload={
+    task:$('#task').value, mode, agents:$('#agents').value, target:$('#target').value,
+    steps:collectSteps(), max_steps:$('#max_steps').value,
+    base_url:$('#base_url').value, model_name:$('#model_name').value,
+    worker_base_url:$('#worker_base_url').value, worker_model:$('#worker_model').value,
+    lead_agents:$('#lead_agents').value,
+    target_user:$('#target_user').value, target_key:$('#target_key').value,
+  };
+  connect();
+  const r=await fetch('/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const j=await r.json();
+  if(!j.ok){ $('#err').textContent='⚠ '+j.error; }
+});
+function doStop(){ $('#stop').disabled=true; $('#hstat').textContent='stopping…'; fetch('/stop',{method:'POST'}); clearGate(); }
+function clearSession(){
+  if(!$('#stop').disabled) fetch('/stop',{method:'POST'});   // stop a live run first
+  agents={}; props={}; hive={}; phases=[]; phaseIdx=0; votes={}; taskText='';
+  $('#agentgrid').innerHTML=''; $('#hive').innerHTML=''; $('#props').innerHTML='';
+  ['taskbanner','hiveWrap','consensusWrap','results','gate'].forEach(id=>$('#'+id).style.display='none');
+  $('#summary').className='summary';
+  $('#livedot').classList.remove('live'); $('#hstat').textContent='idle';
+  $('#start').disabled=false; $('#stop').disabled=true; $('#err').textContent='';
+}
+$('#clear').addEventListener('click', clearSession);
+$('#stop').addEventListener('click', doStop);
+$('#gateStop').addEventListener('click', doStop);
+$('#approve').addEventListener('click', ()=>{ clearGate(); fetch('/approve',{method:'POST'}); });
+
+// if a run is already going (page refresh), reconnect and catch up via replay
+connect();
+fetch('/status').then(r=>r.json()).then(s=>setLive(s.running));
+</script>
+</body>
+</html>
