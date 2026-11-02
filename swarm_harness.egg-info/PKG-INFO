@@ -1,5 +1,0 @@
-Metadata-Version: 2.4
-Name: swarm-harness
-Version: 0.1.0
-Summary: Multi-agent swarm harness against a local llama.cpp gpt-oss endpoint
-Requires-Python: >=3.11
