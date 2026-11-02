@@ -73,22 +73,31 @@ RUN = Run()
 
 def _build_overrides(d: dict) -> dict:
     mode = d.get("mode", "external")
+    simple_mode = bool(d.get("simple_mode", False))
     ov = dict(
         agents=int(d.get("agents", 4)),
         task=d.get("task", "").strip(),
         base_url=(d.get("base_url") or "http://localhost:11434/v1").strip(),
         model=(d.get("model_name") or "gpt-oss:20b").strip(),
-        worker_base_url=(d.get("worker_base_url") or "").strip(),
-        worker_model=(d.get("worker_model") or "").strip(),
-        lead_agents=int(d.get("lead_agents") or 1),
+        auto_scale=bool(d.get("auto_scale", True)),   # size the pool + allocate tools from the task
+        auto_tools=bool(d.get("auto_scale", True)),
         max_steps=int(d.get("max_steps", 20)),
-        gate=bool(d.get("gate", True)),     # web runs ask before advancing a phase by default
+        gate=False if simple_mode else bool(d.get("gate", True)),
+        interactive_questions=simple_mode,
         log=(d.get("log") or "run.jsonl").strip(),
     )
     # Steps: a list of {name, task, tools}. Each step is a phase with its own
     # objective and its own set of allowed tools.
     steps = d.get("steps")
-    if isinstance(steps, list) and steps:
+    if simple_mode:
+        from swarm.pipeline import stage_config
+        phases, objectives, tools, stages = stage_config(ov["task"], d.get("target", "").strip())
+        ov["phases"] = phases
+        ov["step_tasks"] = objectives
+        ov["step_tools"] = tools
+        ov["pipeline"] = True
+        ov["pipeline_stages"] = stages
+    elif isinstance(steps, list) and steps:
         names, step_tasks, step_tools = [], {}, {}
         for i, s in enumerate(steps):
             name = (s.get("name") or f"step{i+1}").strip()
@@ -116,34 +125,28 @@ def _build_overrides(d: dict) -> dict:
 
 @app.route("/")
 def index():
+    return send_from_directory(HERE, "simple.html")
+
+
+@app.route("/advanced")
+def advanced():
     return send_from_directory(HERE, "index.html")
-
-
-@app.route("/worker_models")
-def worker_models():
-    """Server-side probe of a worker endpoint (browser can't reach the LAN directly):
-    is it reachable, and what models does it serve? Used to fill the worker-model picker."""
-    import urllib.request
-    base = (request.args.get("url") or "").strip().rstrip("/")
-    if not base:
-        return jsonify(ok=False, error="no url")
-    try:
-        with urllib.request.urlopen(base + "/models", timeout=5) as r:
-            data = json.load(r)
-        models = [m.get("id") for m in data.get("data", []) if m.get("id")]
-        return jsonify(ok=True, models=models)
-    except Exception as e:
-        hint = ("connection refused — on that machine Ollama is likely bound to localhost; "
-                "expose it with OLLAMA_HOST=0.0.0.0 and restart it") if "refused" in str(e).lower() else ""
-        return jsonify(ok=False, error=str(e), hint=hint)
 
 
 @app.route("/tools")
 def tools():
-    from swarm.tools import BUILTIN_TOOLS
+    from toolmcp.tools import BUILTIN_TOOLS
     return jsonify([{"name": s.name, "description": s.description,
                      "params": list(s.params), "requires": list(s.required_bins)}
                     for s in BUILTIN_TOOLS.values()])
+
+
+@app.route("/pipeline")
+def pipeline_preview():
+    from swarm.pipeline import plan_pipeline
+    task = request.args.get("task", "")
+    host = request.args.get("target", "")
+    return jsonify(stages=plan_pipeline(task, host))
 
 
 @app.route("/defaults")
@@ -195,6 +198,16 @@ def approve():
     """Human approves moving past the current phase gate."""
     if RUN.orch and RUN.running:
         RUN.orch.approve()
+    return jsonify(ok=True)
+
+
+@app.route("/reply", methods=["POST"])
+def reply():
+    answer = str((request.get_json(force=True, silent=True) or {}).get("answer", "")).strip()
+    if not answer:
+        return jsonify(ok=False, error="answer is empty"), 400
+    if not RUN.orch or not RUN.orch.answer_user(answer):
+        return jsonify(ok=False, error="there is no pending question"), 409
     return jsonify(ok=True)
 
 

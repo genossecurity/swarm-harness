@@ -1,7 +1,7 @@
 import unittest
 
 from swarm.compress import MAX_LINES, compress
-from swarm.executor import ExecResult
+from toolmcp.executor import ExecResult
 
 
 class TestCompress(unittest.TestCase):

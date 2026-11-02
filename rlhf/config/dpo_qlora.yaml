@@ -1,0 +1,27 @@
+# QLoRA DPO — starts from the SFT LoRA checkpoint.
+# DPO with a reference model doubles memory. With QLoRA you can skip the separate
+# ref model: TRL reuses the base weights with adapters disabled as the implicit
+# reference (set ref_model: null + precompute_ref_log_probs). That's the only way
+# DPO fits on 16GB.
+sft_model: ./registry/policy-sft          # LoRA adapters + base
+pairs_file: data/splits/pairs.jsonl
+output_dir: ./registry/policy-dpo
+
+load_in_4bit: true
+bf16: true
+beta: 0.1
+epochs: 1
+batch_size: 1
+grad_accum: 16
+lr: 5.0e-6                                  # a touch higher than full-FT DPO for LoRA
+max_len: 2048
+max_prompt_len: 1536
+
+ref_model: null                            # implicit ref via disabled adapters
+precompute_ref_log_probs: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

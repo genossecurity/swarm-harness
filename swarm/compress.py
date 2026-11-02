@@ -4,7 +4,7 @@ sees a short digest, not kilobytes of stdout.
 """
 from __future__ import annotations
 
-from .executor import ExecResult
+from toolmcp.executor import ExecResult
 
 MAX_LINES = 12
 MAX_CHARS = 600

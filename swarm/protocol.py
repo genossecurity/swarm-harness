@@ -13,23 +13,27 @@ from dataclasses import dataclass
 
 # action -> required fields (beyond the always-present "action" and "reason")
 ACTIONS = {
-    "run":     ("cmd",),            # execute raw cmd on the target, share compressed result
-    "tool":    ("tool",),           # call a named tool with "args" (see swarm/tools.py)
-    "propose": ("proposal",),       # post a finding/claim to the whiteboard (unconfirmed)
-    "confirm": ("confirm",),        # verify proposal id `confirm` via its own "cmd" or "tool"
-    "vote":    ("phase_done_vote",),# vote on whether the current phase is finished
-    "note":    (),                  # just record `reason` on the whiteboard; no side effect
+    "run":      ("cmd",),            # execute raw cmd on the target, share compressed result
+    "tool":     ("tool",),          # call a named tool with "args" (see swarm/tools.py)
+    "plan":     ("goals",),         # manager: state the goals for this step before dispatching
+    "dispatch": ("tasks",),         # manager: hand sub-tasks to the worker pool
+    "ask":      ("question",),      # manager: pause and ask the user for missing task context
+    "propose":  ("proposal",),      # post a finding/claim to the whiteboard (unconfirmed)
+    "confirm":  ("confirm",),       # verify proposal id `confirm` via its own "cmd" or "tool"
+    "vote":     ("phase_done_vote",),# vote on whether the current phase is finished
+    "note":     (),                 # just record `reason` on the whiteboard; no side effect
 }
 
 SCHEMA_HINT = (
     'You have NO tools and NO functions available. Never emit a tool call or function call. '
     'Output ONLY a raw JSON object as plain text in your final answer - no prose, no '
     'markdown fences.\n'
-    'Schema: {"action": "run|tool|propose|confirm|vote|note", "reason": "<one sentence>", '
+    'Schema: {"action": "run|tool|plan|dispatch|ask|propose|confirm|vote|note", "reason": "<one sentence>", '
     '"cmd": "<shell command, for run or confirm>", '
     '"tool": "<tool name, for tool or confirm>", "args": {<tool args>}, '
     '"proposal": "<claim, for propose>", '
     '"confirm": "<proposal id you are verifying, for confirm>", '
+    '"question": "<clarification for the user, for ask>", '
     '"phase_done_vote": true|false}\n'
     'Prefer a tool from the list below over raw "run" when one fits.\n'
     'A "proposal" is a FINDING stated as a sentence (e.g. "Host 10.0.0.5 is alive" or '
@@ -73,8 +77,11 @@ class Action:
     cmd: str | None = None
     tool: str | None = None
     args: dict | None = None
+    tasks: list | None = None
+    goals: list | None = None
     proposal: str | None = None
     confirm: str | None = None
+    question: str | None = None
     phase_done_vote: bool | None = None
     raw: str = ""
 
@@ -137,14 +144,40 @@ def parse_action(text: str) -> Action:
     args = obj.get("args")
     if args is not None and not isinstance(args, dict):
         raise ProtocolError("'args' must be an object")
+    goals = obj.get("goals")
+    if action == "plan":
+        if isinstance(goals, (str, dict)):
+            goals = [goals]
+        if not isinstance(goals, list):
+            raise ProtocolError("'plan' needs a non-empty 'goals' list")
+        norm = []
+        for g in goals:
+            # each goal is a string, or {goal, expect} — "for each goal, what I expect to find"
+            if isinstance(g, str) and g.strip():
+                norm.append({"goal": g.strip(), "expect": ""})
+            elif isinstance(g, dict) and str(g.get("goal", "")).strip():
+                norm.append({"goal": str(g["goal"]).strip(),
+                             "expect": str(g.get("expect", "") or g.get("expected", "")).strip()})
+        if not norm:
+            raise ProtocolError("'plan' needs a non-empty 'goals' list")
+        goals = norm
+    tasks = obj.get("tasks")
+    if action == "dispatch":
+        if not isinstance(tasks, list) or not tasks:
+            raise ProtocolError("'dispatch' needs a non-empty 'tasks' list")
+        if not all(isinstance(t, dict) and (t.get("tool") or t.get("check")) for t in tasks):
+            raise ProtocolError("each dispatched task needs a 'tool' (with args) or a 'check'")
     return Action(
         action=action,
         reason=str(obj.get("reason", "")),
         cmd=obj.get("cmd"),
         tool=obj.get("tool"),
         args=args if isinstance(args, dict) else None,
+        tasks=tasks if isinstance(tasks, list) else None,
+        goals=goals if isinstance(goals, list) else None,
         proposal=obj.get("proposal"),
         confirm=obj.get("confirm"),
+        question=obj.get("question"),
         phase_done_vote=vote if isinstance(vote, bool) else None,
         raw=text,
     )

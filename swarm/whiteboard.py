@@ -18,7 +18,7 @@ class SubTask:
     """A unit of work the manager dispatches to the worker pool."""
     id: str
     phase: str
-    instruction: str = ""         # natural-language check (small model turns it into a command)
+    instruction: str = ""         # natural-language check (worker agent turns it into a command)
     tool: str | None = None       # a concrete tool to run (no model call needed)
     args: dict | None = None
     toolkit: list = field(default_factory=list)   # tool/category names the worker may use
@@ -202,6 +202,22 @@ class Whiteboard:
                 self.phase_idx += 1
                 return True
             return False
+
+    def finish_phase(self, by: str) -> str:
+        """Manager authority: the manager declares the phase done. Parks a human gate
+        if gating is on, else advances. Returns 'gated' | 'advanced' | 'complete'."""
+        with self._lock:
+            if self.phase_idx >= len(self.phases):
+                return "complete"
+            self._post(Entry(by, self.phase, "vote", "manager: phase done"))
+            if self.gate_enabled and self.pending is None:
+                nxt = (self.phases[self.phase_idx + 1]
+                       if self.phase_idx + 1 < len(self.phases) else "complete")
+                self.pending = (self.phases[self.phase_idx], nxt)
+                self.gate.clear()
+                return "gated"
+            self.phase_idx += 1
+            return "complete" if self.done else "advanced"
 
     def confirm_advance(self) -> None:
         """Approve the parked gate: advance one phase and release the agents."""

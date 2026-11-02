@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarm · Simple</title>
+<style>
+:root{--bg:#0e1118;--panel:#161b26;--panel2:#1d2433;--line:#2a3344;--ink:#e7ecf5;--mut:#8a97ad;--accent:#5b8cff;--ok:#36c08a;--bad:#e5604d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-sans-serif,system-ui,sans-serif}
+header{height:58px;padding:0 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;background:var(--panel)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}.dot.live{background:var(--ok)}h1{font-size:15px;margin:0}
+nav{display:flex;gap:6px;margin-left:8px}nav a{color:var(--mut);text-decoration:none;padding:5px 9px;border:1px solid var(--line);border-radius:7px;font-size:12px}nav a.active{color:var(--ink);border-color:var(--accent)}
+#status{margin-left:auto;color:var(--mut);font-size:12px}.layout{max-width:850px;margin:24px auto;padding:0 16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}.intro{padding:18px 20px;border-bottom:1px solid var(--line)}.intro h2{font-size:17px;margin:0 0 3px}.intro p{margin:0;color:var(--mut);font-size:13px}
+.setup{display:grid;grid-template-columns:1fr 220px 130px;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}label{display:block;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:9px 10px;font:inherit}textarea{resize:vertical;min-height:70px}.taskbox{padding:14px 16px 8px}.taskbox textarea{min-height:54px}
+.pipeline{padding:10px 16px 14px;border-bottom:1px solid var(--line)}.pipelineHead{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:12px;margin-bottom:8px}.pipelineSteps{display:flex;gap:7px;flex-wrap:wrap}.stage{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:120px;max-width:100%;flex:1 1 135px}.stage.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.stage.done{border-color:var(--ok)}.stageTitle{font-weight:600;font-size:12px}.stageTools{color:var(--mut);font-size:11px;margin-top:3px;overflow-wrap:anywhere}.stageObjective{color:var(--mut);font-size:11px;margin-top:4px}
+.chat{height:min(52vh,520px);min-height:260px;overflow:auto;padding:18px 16px;display:flex;flex-direction:column;gap:12px}.msg{max-width:85%;padding:10px 13px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}.msg.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}.msg.user{align-self:flex-end;background:#25385f;border:1px solid #37558e}.msg.note{align-self:center;color:var(--mut);font-size:12px;padding:2px 8px;background:transparent}.msg.question{border-color:var(--accent)}
+.composer{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px}.composer input{flex:1}.composer[hidden]{display:none}
+.actions{padding:0 16px 14px;display:flex;gap:8px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:8px;padding:9px 13px;cursor:pointer}.btn.primary{background:var(--accent);border-color:var(--accent);color:white;font-weight:600}.btn:disabled{opacity:.5;cursor:not-allowed}.err{color:var(--bad);padding:0 16px 12px;min-height:16px;font-size:12px}.hint{font-size:12px;color:var(--mut);padding:0 16px 14px}.hint a{color:#a8bcff}
+@media(max-width:650px){.setup{grid-template-columns:1fr 1fr}.setup div:first-child{grid-column:1/-1}.layout{margin:14px auto}.chat{height:52vh}}
+</style>
+</head>
+<body>
+<header><span class="dot" id="dot"></span><h1>SWARM · task chat</h1><nav><a class="active" href="/">Simple</a><a href="/advanced">Advanced</a></nav><span id="status">ready</span></header>
+<main class="layout"><section class="panel">
+  <div class="intro"><h2>What should I work on?</h2><p>The swarm will investigate, share progress, and ask you when it needs clarification.</p></div>
+  <div class="setup">
+    <div><label for="target">Target</label><input id="target" value="192.168.2.14" placeholder="host or IP"></div>
+    <div><label for="mode">Mode</label><select id="mode"><option value="external">Probe a remote host</option><option value="local">This machine</option><option value="ssh">SSH into target</option></select></div>
+    <div id="sshUserWrap" hidden><label for="sshUser">SSH user and key</label><input id="sshUser" placeholder="user (optional)"><input id="sshKey" placeholder="SSH key path (optional)" style="margin-top:6px"></div>
+  </div>
+  <div class="taskbox"><label for="task">Task</label><textarea id="task" placeholder="Describe what you want to find out"></textarea></div>
+  <div class="pipeline"><div class="pipelineHead"><span>Testing pipeline</span><span id="stageStatus">Plan updates as you describe the task</span></div><div class="pipelineSteps" id="pipelineSteps"></div></div>
+  <div class="chat" id="chat" aria-live="polite"><div class="msg bot">Hi. Tell me what you want to investigate. I’ll ask a question if I need more context.</div></div>
+  <div class="composer" id="replyBox" hidden><input id="reply" placeholder="Your answer…"><button class="btn primary" id="sendReply">Reply</button></div>
+  <div class="actions"><button class="btn primary" id="start">Start task</button><button class="btn" id="stop" disabled>Stop</button><button class="btn" id="clear">Clear chat</button></div>
+  <div class="err" id="error"></div>
+  <div class="hint">Model settings and detailed controls are in <a href="/advanced">Advanced UI</a>.</div>
+</section></main>
+<script>
+const $=s=>document.querySelector(s), chat=$('#chat');let es=null,running=false,awaiting=false,pipelineStages=[],currentStage='',availableTools=[],previewTimer,pipelineDone=false;
+const baseUrl=localStorage.getItem('swarm_base_url')||'http://localhost:11434/v1';
+const modelName=localStorage.getItem('swarm_model_name')||'gpt-oss:20b';
+function message(text,kind='bot'){const d=document.createElement('div');d.className='msg '+kind;d.textContent=text;chat.append(d);chat.scrollTop=chat.scrollHeight;return d;}
+function setLive(on){running=on;$('#dot').classList.toggle('live',on);$('#status').textContent=on?(awaiting?'waiting for your answer':'working'):'ready';$('#start').disabled=on;$('#stop').disabled=!on;}
+function connect(){if(es)return;es=new EventSource('/stream');es.onmessage=e=>{let v;try{v=JSON.parse(e.data)}catch{return}onEvent(v)};}
+function renderPipeline(){const root=$('#pipelineSteps');root.innerHTML='';const activeIndex=pipelineStages.findIndex(x=>x.key===currentStage);pipelineStages.forEach((s,i)=>{const d=document.createElement('div');d.className='stage'+(!pipelineDone&&s.key===currentStage?' active':'')+((pipelineDone||activeIndex>i)?' done':'');const t=document.createElement('div');t.className='stageTitle';t.textContent=(i+1)+'. '+s.title;const tools=document.createElement('div');tools.className='stageTools';const missing=(availableTools.length?s.tools.filter(x=>(toolNeeds[x]||[x]).some(bin=>!availableTools.includes(bin))):[]);tools.textContent='Tools: '+s.tools.join(', ')+(missing.length?' · unavailable here: '+missing.join(', '):'');d.append(t,tools);if(s.objective){const o=document.createElement('div');o.className='stageObjective';o.textContent=s.objective;d.append(o);}root.append(d);});}
+async function previewPipeline(){if(running)return;const task=$('#task').value.trim(),target=$('#target').value.trim();pipelineDone=false;if(!task){pipelineStages=[];currentStage='';$('#stageStatus').textContent='Plan updates as you describe the task';renderPipeline();return;}try{const q=new URLSearchParams({task,target});const r=await fetch('/pipeline?'+q);const data=await r.json();pipelineStages=data.stages||[];currentStage='';$('#stageStatus').textContent=pipelineStages.length+' stage'+(pipelineStages.length===1?'':'s')+' planned';renderPipeline();}catch{}}
+function onEvent(v){
+  if(v.event==='pipeline_plan'){pipelineStages=v.stages||[];availableTools=[];currentStage='';pipelineDone=false;$('#stageStatus').textContent=pipelineStages.length+' stages planned';renderPipeline();return;}
+  if(v.event==='pipeline_stage'){currentStage=v.phase;const title=pipelineStages.find(s=>s.key===v.phase)?.title||v.title||v.phase;$('#stageStatus').textContent='Stage '+v.index+' of '+v.total+': '+title;renderPipeline();message('Stage '+v.index+'/'+v.total+': '+title+'. Tools: '+(v.tools||[]).join(', '),'note');return;}
+  if(v.event==='tools'){availableTools=v.available||[];renderPipeline();return;}
+  if(v.event==='user_question'){awaiting=true;setLive(true);message(v.question,'bot question');$('#replyBox').hidden=false;$('#reply').focus();$('#status').textContent='your input needed';return;}
+  if(v.event==='phase_blocked'){message('I could not complete this step: '+(v.reason||'some goals remain unmet'));return;}
+  if(v.event==='pipeline_warning'){message((v.reason||'No compatible tool for this stage.')+' Suggested tools: '+(v.suggested_tools||[]).join(', '));return;}
+  if(v.event==='pipeline_decision'&&v.finished&&!v.tools?.length){message('No more targeted checks for this stage: '+(v.reason||'the available evidence is sufficient.'),'note');return;}
+  if(v.event==='run_error'){message('I hit an error: '+(v.error||v.detail||'unknown error'));return;}
+  if(v.event==='run_start'){message('I’m starting the investigation. I’ll share findings as they come in.');setLive(true);return;}
+  if(v.event==='scaling'){message(v.reason||'Team ready','note');return;}
+  if(v.event==='agent_spawned'){message('Adding a worker to run more checks at once'+(v.workers!=null?(' (now '+v.workers+(v.cap?('/'+v.cap):'')+' workers)'):'')+'.','note');return;}
+  if(v.event==='phase_gate'){message(v.question||'A step is ready for approval.','bot');return;}
+  if(v.event==='phase_advanced'){message(v.done?'Investigation complete.':'Moving to '+v.phase+'.','note');return;}
+  if(v.event==='run_end'){
+    const f=(v.findings||[]).map(x=>x.claim),u=(v.unconfirmed||[]).map(x=>x.claim+' (unconfirmed)');
+    const partial=[...f,...u];
+    if(v.all_phases_done)message(partial.length?'Done. Findings:\n'+partial.map(x=>'• '+x).join('\n'):'Done, but I found no confirmed results.');
+    else message(partial.length?'Stopped before completing the task. Partial findings:\n'+partial.map(x=>'• '+x).join('\n'):'The run ended before the task was complete.');
+    pipelineDone=!!v.all_phases_done;if(pipelineDone){currentStage='';$('#stageStatus').textContent='Pipeline complete';renderPipeline();}setLive(false);awaiting=false;$('#replyBox').hidden=true;return;
+  }
+  if(v.event==='eos'){setLive(false);awaiting=false;$('#replyBox').hidden=true;if(es){es.close();es=null;}return;}
+  if(v.action==='propose'&&v.result?.claim)message('Finding: '+v.result.claim);
+  if(v.action==='task'&&v.result?.tool==='web_discover'&&v.result?.digest)message('Web app evidence: '+v.result.digest);
+  if(v.action==='dispatch'&&v.result?.tasks?.length){const why=v.result.adaptive&&v.reason?' — based on findings: '+v.reason:'';message((v.result.adaptive?'Next targeted check: ':'I’m checking: ')+v.result.tasks.map(t=>t.tool||t.check).join(', ')+why,'note');}
+  if(v.action==='confirm'&&v.result?.status)message((v.result.supports?'Independently confirmed: ':'Could not independently confirm: ')+v.result.status,'note');
+  if(v.action==='ask'&&v.result?.answer){awaiting=false;$('#replyBox').hidden=true;message('Thanks, I’ll use that and continue.','note');}
+}
+async function start(){
+  const task=$('#task').value.trim(),target=$('#target').value.trim();if(!task){$('#error').textContent='Enter a task first.';return;}if(!target&&$('#mode').value!=='local'){ $('#error').textContent='Enter a target host.';return;}
+  $('#error').textContent='';chat.innerHTML='';message(task,'user');connect();setLive(true);
+  const body={task,target,mode:$('#mode').value,simple_mode:true,agents:4,base_url:baseUrl,model_name:modelName};
+  if(body.mode==='ssh'){body.target_user=$('#sshUser').value.trim();body.target_key=$('#sshKey').value.trim();}
+  try{const r=await fetch('/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!j.ok){$('#error').textContent=j.error;setLive(false);}}
+  catch(e){$('#error').textContent='Could not start the run.';setLive(false);}
+}
+async function sendReply(){const a=$('#reply').value.trim();if(!a)return;$('#reply').value='';message(a,'user');$('#replyBox').hidden=true;awaiting=false;$('#status').textContent='working';try{const r=await fetch('/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({answer:a})});const j=await r.json();if(!j.ok){message(j.error);}}catch{message('Could not send your answer.');}}
+$('#start').onclick=start;$('#stop').onclick=()=>{fetch('/stop',{method:'POST'});setLive(false);};$('#clear').onclick=()=>{if(running)fetch('/stop',{method:'POST'});chat.innerHTML='';message('Hi. Tell me what you want to investigate. I’ll ask a question if I need more context.');$('#task').value='';$('#error').textContent='';setLive(false);awaiting=false;currentStage='';pipelineDone=false;pipelineStages=[];renderPipeline();$('#stageStatus').textContent='Plan updates as you describe the task';$('#replyBox').hidden=true;};$('#sendReply').onclick=sendReply;$('#reply').addEventListener('keydown',e=>{if(e.key==='Enter')sendReply();});$('#task').addEventListener('input',()=>{clearTimeout(previewTimer);previewTimer=setTimeout(previewPipeline,180);});$('#target').addEventListener('input',()=>{clearTimeout(previewTimer);previewTimer=setTimeout(previewPipeline,180);});
+const toolNeeds={};fetch('/tools').then(r=>r.json()).then(ts=>{ts.forEach(t=>toolNeeds[t.name]=t.requires||[]);renderPipeline();});
+$('#mode').onchange=()=>$('#sshUserWrap').hidden=$('#mode').value!=='ssh';
+fetch('/status').then(r=>r.json()).then(s=>{if(s.running){setLive(true);connect();}});
+</script>
+</body>
+</html>

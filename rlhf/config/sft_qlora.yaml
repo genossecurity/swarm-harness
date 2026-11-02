@@ -1,0 +1,26 @@
+# QLoRA SFT — tuned for a single consumer GPU (e.g. RX 6950 XT, 16GB).
+# 4-bit base + LoRA adapters keeps an 8B in VRAM for training.
+#
+# AMD note: bitsandbytes 4-bit on ROCm is still rough. Two realistic paths:
+#   (a) Train on a rented NVIDIA GPU (4-bit works cleanly), run inference on the
+#       6950 XT via llama.cpp/Ollama. Simplest.
+#   (b) Stay on ROCm: prefer a 3B model + LoRA in bf16 (skip 4-bit), or use
+#       llama.cpp finetune. Set load_in_4bit: false and pick base_model_small.
+base_model: meta-llama/Llama-3.1-8B-Instruct
+base_model_small: Qwen/Qwen2.5-3B-Instruct     # ROCm-friendly bf16 LoRA fallback
+train_file: data/splits/sft.jsonl
+output_dir: ./registry/policy-sft
+
+load_in_4bit: true          # set false on ROCm; use base_model_small instead
+bf16: true
+epochs: 2
+batch_size: 1
+grad_accum: 16
+lr: 2.0e-4                   # LoRA tolerates a higher LR than full-FT
+max_seq_len: 2048           # drop from 4096 to fit 16GB
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

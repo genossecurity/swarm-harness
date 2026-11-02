@@ -1,0 +1,11 @@
+# DPO — run after SFT, on preference pairs from data/build_pairs.py.
+sft_model: ./registry/policy-sft
+pairs_file: data/splits/pairs.jsonl
+output_dir: ./registry/policy-dpo
+beta: 0.1          # KL anchor to the SFT model; raise if it drifts/degrades
+epochs: 1          # DPO overfits fast; watch reward-margin, stop early
+batch_size: 2
+grad_accum: 16
+lr: 5.0e-7
+max_len: 4096
+max_prompt_len: 3072

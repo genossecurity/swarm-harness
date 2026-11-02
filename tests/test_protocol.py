@@ -30,6 +30,24 @@ class TestExtractAndParse(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             parse_action('{"action":"frobnicate","reason":"x"}')
 
+    def test_plan_parses_goals(self):
+        a = parse_action('{"action":"plan","goals":["map live hosts","find open ports"],"reason":"x"}')
+        self.assertEqual(a.action, "plan")
+        self.assertEqual([g["goal"] for g in a.goals], ["map live hosts", "find open ports"])
+        self.assertTrue(all("expect" in g for g in a.goals))
+
+    def test_plan_parses_goal_with_expectation(self):
+        a = parse_action('{"action":"plan","goals":[{"goal":"find open ports","expect":"a list of open TCP ports"}],"reason":"x"}')
+        self.assertEqual(a.goals[0], {"goal": "find open ports", "expect": "a list of open TCP ports"})
+
+    def test_plan_coerces_string_goal(self):
+        a = parse_action('{"action":"plan","goals":"establish reachability","reason":"x"}')
+        self.assertEqual(a.goals, [{"goal": "establish reachability", "expect": ""}])
+
+    def test_plan_requires_nonempty_goals(self):
+        with self.assertRaises(ProtocolError):
+            parse_action('{"action":"plan","goals":[],"reason":"x"}')
+
 
 class TestToolAction(unittest.TestCase):
     def test_tool_action_parses(self):

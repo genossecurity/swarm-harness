@@ -12,9 +12,51 @@ The model runs on **Ollama** (`gpt-oss:20b`, OpenAI-compatible at
 serves the same API on `:8000`; stop Ollama first so it isn't holding VRAM. The
 from-source vLLM path was abandoned — vLLM has no MXFP4 kernels for RDNA2.)
 
-## Web UI (live brainstorming view)
+## Two layers (MCP + harness)
 
-A Flask front-end with a control panel (task box, mode buttons, agent count,
+The project is split into two distinct layers so the division of labor is clean:
+
+```
+toolmcp/     MCP TOOL LAYER — what can run and how it's guarded. Depends on nothing else.
+  tools.py     the tool registry: ToolSpec.build(args) -> shell-quoted command
+  executor.py  command execution (local / ssh / external), content-neutral
+  sandbox.py   enforcement choke point: allowlist + lab-CIDR + kill-patterns + outcome classify
+  server.py    list_tools() / call_tool() — the MCP API (stdio JSON-RPC transport: next step)
+
+swarm/       HARNESS LAYER — the agent loop, orchestration, serving client. MCP client.
+rlhf/        HARNESS LAYER — the RLHF pipeline that trains the policy the harness runs.
+```
+
+The dependency only runs one way: `swarm` and `rlhf` import `toolmcp`, never the
+reverse — so the same sandboxed tools can be exposed to any MCP client (Claude
+Code included) once the stdio server lands. The RLHF pipeline reuses the harness
+LLM client (`swarm.client`) and the tool layer's sandbox, so there is one HTTP
+client and one execution/enforcement path, not duplicates. See `rlhf/README.md`
+for the training loop and `pentest-agent-unified.pdf` for the merged design.
+
+Everything runs stdlib-only and offline: `python -m unittest discover -s tests`
+(129 tests — harness + tool layer + RLHF).
+
+## Web UIs
+
+Open `http://127.0.0.1:5000/` for the **Simple** chat interface. Give it a task
+and target; the manager can pause to ask a focused clarification question while
+it works. Use `/advanced` for the full run controls and live agent, dispatch,
+whiteboard, and consensus views described below.
+
+Simple mode previews a task-specific testing pipeline and reports its current
+stage and suggested tools. It runs service discovery first, adds web app
+identification when the task asks about an app or web service, and adds
+vulnerability checks only when requested. Core discovery stages use fixed
+structured tools. After each web or vulnerability result, the model gets the
+accumulated evidence and the stage's installed tools, then picks a small number
+of targeted follow-up checks or stops when they would add little. Those choices
+are limited to structured tools and the configured target; the UI shows why a
+follow-up was selected.
+
+All agents use one model endpoint and model name.
+
+The **Advanced** Flask UI has a control panel (task box, mode buttons, agent count,
 target, phases, model) and a live visual of the run: each agent gets its own box
 with a scrolling feed (what it ran, the result, proposals, confirmations), a task
 banner on top (with the probing tools detected on the host), a **Hive mind**
@@ -35,39 +77,11 @@ press **Yes, move to next step** (or **Stop here**). Nothing advances without yo
 
 ```bash
 ./web/run_web.sh          # first run makes a .venv-web with Flask, then serves
-# open http://127.0.0.1:5000  — set the task, pick a mode, press Start
+# open http://127.0.0.1:5000 for Simple, or /advanced for full controls
 ```
 
 Defaults point at Ollama (`gpt-oss:20b`). The model must be running (Ollama, or
 `serve_llamacpp.sh`) before you press Start.
-
-### Two-tier models (offload workers to a second GPU)
-
-The lead/orchestrator agent runs on the strong local model (the AMD card's
-`gpt-oss:20b`) and synthesizes findings. The **worker sub-agents** — which just do
-quick one-liner checks (call a tool, run a probe, confirm a finding) — can run on
-a **smaller model on a second machine/GPU**, so their many parallel calls don't
-queue behind the lead on one card.
-
-In the web UI set *Worker endpoint* (e.g. `http://192.168.2.16:11434/v1`), *Worker
-model* (e.g. `llama3.2:3b`), and *Lead agents* (how many stay on the AMD card,
-default 1). Or via CLI:
-
-```bash
-python -m swarm.cli run --agents 4 --lead-agents 1 \
-  --model http://localhost:11434/v1 --model-name gpt-oss:20b \
-  --worker-url http://192.168.2.16:11434/v1 --worker-model qwen2.5-coder:3b \
-  --external --target 192.168.2.14 --task "What ports are open"
-```
-
-Each agent card shows a **lead**/**worker** badge and its model. Workers get a
-deliberately **trimmed context** (no big state dump) so a small model stays
-reliable and fast at one-liner checks. The web UI's worker field auto-checks the
-endpoint and lists its models; if the endpoint is unreachable the swarm warns and
-falls back to the lead model for everyone, so the run still completes.
-
-> If the remote Ollama refuses connections, it's bound to localhost — start it
-> with `OLLAMA_HOST=0.0.0.0` on that machine so the LAN can reach it.
 
 ## Three-command quickstart (CLI)
 
@@ -114,7 +128,26 @@ swarm run --external --target 192.168.1.50 --agents 4 \
   --model http://localhost:8000/v1 --log run.jsonl
 ```
 
-## How it works
+## Orchestration: manager / worker (default for 2+ agents)
+
+Instead of N peer agents all running the same loop (redundant), the lead acts as a
+**manager**: for any task it decomposes the step into discrete checks and
+**dispatches** them to a worker pool via a shared dispatch board. Each check runs
+**once**:
+
+- A concrete tool call (`{tool, args}`) a worker runs **directly — no model call**.
+- A natural-language check (`{check, toolkit}`) is handed to a worker agent using
+  the shared model, which turns it into a command. The manager assigns a **toolkit** from the tool
+  **catalog** (categories: liveness, ports, web, dns, vuln, path) so a worker only gets the
+  relevant tools.
+
+Workers pull tasks from the board and run them concurrently; the manager reads the
+results, records findings, and decides when the step is done (a convergence guard
+finishes a step if the manager stops making progress). Concrete work executes
+directly; natural-language checks use the shared model. Set `orchestration = "peer"` to use the legacy
+all-peers mode, or `"manager"`/`"auto"` (default) for the manager pool.
+
+## How it works (shared mechanics)
 
 - **No native tool-calling.** gpt-oss tool calls over this endpoint are
   inconsistent, so agents emit **strict JSON in the message body** and the code
@@ -133,10 +166,15 @@ swarm run --external --target 192.168.1.50 --agents 4 \
   steps editor — one objective box and a row of tool chips per step.
 - **Structured tool calls.** Besides raw `run`, agents can call named,
   parameterized tools via the `tool` action (`{tool, args}`): `ping`, `port_scan`,
-  `full_scan`, `tcp_connect`, `http_head`, `http_get`, `dns_lookup`, `traceroute`
+  `service_scan`, `full_scan`, `tcp_connect`, `http_head`, `http_get`, `web_discover`, `dns_lookup`,
+  `nmap_safe_vuln`, `testssl`, `nuclei_scan`, `nikto_scan`, `traceroute`
   (see [swarm/tools.py](swarm/tools.py)). Args are shell-quoted when the command is
   built, so tool calls are injection-safe and auditable, and each step only exposes
   the tools you allow it (further filtered to the binaries actually installed).
+  Vulnerability checks are grouped in the opt-in `vuln` toolkit: Nmap runs scripts
+  tagged both `safe` and `vuln`, testssl.sh uses its fast profile, Nuclei is
+  rate-limited with intrusive/fuzzing/brute-force/DoS tags excluded, and Nikto is
+  restricted to information and configuration checks with a 25-second scan cap.
 - **Context discipline.** Each turn the agent sees the overall task, the current
   step's objective, the shared findings, and the current step's recent activity —
   hard-clamped to ~2K tokens (`ctx_cap_chars`). Raw command output never reaches

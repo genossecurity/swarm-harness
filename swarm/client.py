@@ -7,6 +7,7 @@ count so the orchestrator can report an aggregate retry rate.
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -64,20 +65,25 @@ class LLMClient:
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"
 
-    def _post(self, messages: list[dict]) -> str:
+    def _post(self, messages: list[dict], *, max_tokens: int = 512,
+              temperature: float | None = None) -> str:
         body = {
             "model": self.model,
             "messages": messages,
-            "max_tokens": 512,
-            "temperature": self.temperature,
+            "max_tokens": max_tokens,
+            "temperature": self.temperature if temperature is None else temperature,
         }
         if self.harmony:                    # gpt-oss only — breaks other models
             body["reasoning_effort"] = "low"
             body["chat_template_kwargs"] = {"reasoning_effort": "low"}
+        headers = {"Content-Type": "application/json"}
+        api_key = os.environ.get("OPENAI_API_KEY")   # only for remote endpoints; local needs none
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         req = urllib.request.Request(
             self.base_url + "/chat/completions",
             data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json"},
+            headers=headers,
         )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             data = json.load(resp)
@@ -88,6 +94,13 @@ class LLMClient:
             # native tool call and leave content empty. Rebuild JSON from its arguments.
             content = _from_tool_call(msg["tool_calls"][0])
         return content
+
+    def chat(self, messages: list[dict], *, temperature: float = 0.2,
+             max_tokens: int = 512) -> str:
+        """A plain chat completion returning raw text — no protocol parsing, no
+        retries. Used by the RLHF eval gate (LLM-as-judge) so it shares one HTTP
+        client with the harness instead of carrying its own."""
+        return self._post(messages, max_tokens=max_tokens, temperature=temperature)
 
     def turn(self, system: str, user: str, stop_check=None) -> TurnResult:
         """One agent decision. Returns a validated Action, retrying on bad JSON.

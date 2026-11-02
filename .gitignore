@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv*/
+
+# RLHF generated / derived — never commit. The raw event log is the only ground
+# truth; keep it off git too if it holds real engagement data.
+rlhf/data/raw/
+rlhf/data/splits/
+registry/*/
+!registry/.gitkeep
+
+# Model weights / checkpoints
+*.safetensors
+*.bin
+*.pt

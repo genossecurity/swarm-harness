@@ -1,0 +1,10 @@
+# SFT — run first, on demonstration transcripts.
+base_model: meta-llama/Llama-3.1-8B-Instruct   # or your preferred open base
+train_file: data/splits/sft.jsonl             # {"messages":[...]} per line
+output_dir: ./registry/policy-sft
+epochs: 2
+batch_size: 4
+grad_accum: 8
+lr: 1.0e-5
+max_seq_len: 4096
+packing: true

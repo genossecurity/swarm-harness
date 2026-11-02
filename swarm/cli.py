@@ -18,9 +18,6 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--model", help="OpenAI-compatible base URL, e.g. http://localhost:8000/v1")
     r.add_argument("--model-name", help="served model id in the request body "
                    "(llama-server: gpt-oss-20b; Ollama: gpt-oss:20b)")
-    r.add_argument("--worker-url", help="2nd OpenAI-compatible endpoint for worker sub-agents")
-    r.add_argument("--worker-model", help="smaller model served at --worker-url")
-    r.add_argument("--lead-agents", type=int, help="how many agents use the lead model (rest use worker)")
     r.add_argument("--target", help="target host (ip/hostname); key-based SSH")
     r.add_argument("--target-user", help="SSH user (default root)")
     r.add_argument("--target-key", help="path to SSH private key")
@@ -42,7 +39,6 @@ def main(argv: list[str] | None = None) -> int:
     # --model is the base_url (matches the documented quickstart).
     overrides = dict(
         agents=args.agents, task=args.task, base_url=args.model, model=args.model_name,
-        worker_base_url=args.worker_url, worker_model=args.worker_model, lead_agents=args.lead_agents,
         log=args.log, max_steps=args.max_steps,
         target_host=args.target, target_user=args.target_user,
         target_key=args.target_key, target_port=args.target_port,

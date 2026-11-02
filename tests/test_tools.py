@@ -1,6 +1,6 @@
 import unittest
 
-from swarm.tools import (BUILTIN_TOOLS, ToolError, build_command, render_tools,
+from toolmcp.tools import (BUILTIN_TOOLS, ToolError, build_command, render_tools,
                          tools_for_step)
 
 
@@ -16,7 +16,7 @@ class TestBuild(unittest.TestCase):
         self.assertIn("-p 22,80", build_command("port_scan", {"host": "10.0.0.5", "ports": "22,80"}))
 
     def test_port_scan_normalizes_messy_lists(self):
-        # small models emit JSON-array-ish port lists; they must normalize to nmap form
+        # Model replies may contain JSON-array-ish port lists; normalize to nmap form.
         for messy in ["[22, 53, 80]", '["22","53","80"]', "22 53 80"]:
             cmd = build_command("port_scan", {"host": "x", "ports": messy})
             self.assertIn("-p 22,53,80", cmd)

@@ -3,9 +3,9 @@ import unittest
 
 from swarm.agent import Agent
 from swarm.config import load_config
-from swarm.executor import ExecResult
+from toolmcp.executor import ExecResult
 from swarm.protocol import Action
-from swarm.tools import ToolError
+from toolmcp.tools import ToolError
 from swarm.whiteboard import Whiteboard
 
 
@@ -100,7 +100,7 @@ class TestAgentTools(unittest.TestCase):
         self.assertEqual(a._guard_repeat(other, "explore").action, "tool")
 
 
-class TestRoleRouting(unittest.TestCase):
+class TestSingleModelRouting(unittest.TestCase):
     def _orch(self, **kw):
         import swarm.orchestrator as orch_mod
         from swarm.client import LLMClient
@@ -123,18 +123,12 @@ class TestRoleRouting(unittest.TestCase):
         if getattr(self, "_saved", None):
             LLMClient.preflight, orch_mod.make_executor, Orchestrator._detect_tools = self._saved
 
-    def test_all_lead_without_worker(self):
+    def test_all_agents_share_one_model_client(self):
         o = self._orch()
         o._build()
-        self.assertEqual([a.role for a in o.agents], ["lead"] * 4)
-
-    def test_split_lead_and_workers(self):
-        o = self._orch(worker_base_url="http://192.168.2.16:11434/v1", worker_model="small", lead_agents=1)
-        o._build()
         self.assertEqual([a.role for a in o.agents], ["lead", "worker", "worker", "worker"])
-        self.assertIn("big", o.agents[0].model_label)
-        self.assertIn("small", o.agents[1].model_label)
-        self.assertIn("192.168.2.16", o.agents[1].model_label)
+        self.assertTrue(all(a.client is o.agents[0].client for a in o.agents))
+        self.assertTrue(all("big" in a.model_label for a in o.agents))
 
 
 class TestClientHarmony(unittest.TestCase):

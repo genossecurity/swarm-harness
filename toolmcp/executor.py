@@ -14,8 +14,18 @@ import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from typing import Protocol
 
-from .config import TargetConfig
+
+class Target(Protocol):
+    """The subset of the harness's TargetConfig the executor needs. Declared
+    structurally so this layer imports nothing from swarm/ — any object with
+    these attributes (the harness's TargetConfig has them) works."""
+    mode: str
+    port: int
+    key: str | None
+    @property
+    def ssh_dest(self) -> str: ...
 
 
 @dataclass
@@ -29,7 +39,7 @@ class ExecResult:
 
 class Executor:
     def start(self) -> None: ...
-    def run(self, cmd: str, timeout: float = 30.0) -> ExecResult: ...
+    def run(self, cmd: str, timeout: float = 30.0, shell: bool = True) -> ExecResult: ...
     def close(self) -> None: ...
 
     def __enter__(self):
@@ -49,21 +59,25 @@ def _s(v) -> str:
 
 
 class LocalExecutor(Executor):
-    """Runs commands on this machine via /bin/sh. For harness self-tests only."""
+    """Runs commands on this machine. Used both for harness self-tests (shell on,
+    for pipes/redirs) and as the sandbox's backend (shell OFF, so metacharacters
+    can't slip past the allowlist — see toolmcp.sandbox)."""
 
-    def run(self, cmd: str, timeout: float = 30.0) -> ExecResult:
+    def run(self, cmd: str, timeout: float = 30.0, shell: bool = True) -> ExecResult:
+        argv = ["/bin/sh", "-c", cmd] if shell else shlex.split(cmd)
         try:
-            p = subprocess.run(["/bin/sh", "-c", cmd], capture_output=True,
-                               text=True, timeout=timeout)
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
             return ExecResult(cmd, p.returncode, _s(p.stdout), _s(p.stderr))
         except subprocess.TimeoutExpired as e:
             return ExecResult(cmd, 124, _s(e.stdout), _s(e.stderr), timed_out=True)
+        except FileNotFoundError:
+            return ExecResult(cmd, 127, "", f"{cmd.split()[0] if cmd.split() else cmd}: not found")
 
 
 class SSHExecutor(Executor):
     """Persistent SSH session via OpenSSH ControlMaster multiplexing."""
 
-    def __init__(self, target: TargetConfig, agent_id: str):
+    def __init__(self, target: "Target", agent_id: str):
         self.t = target
         self.agent_id = agent_id
         self._sock = os.path.join(
@@ -87,7 +101,9 @@ class SSHExecutor(Executor):
             self._base + ["-o", "ControlPersist=300", "-fN", self.t.ssh_dest],
             check=True, timeout=30)
 
-    def run(self, cmd: str, timeout: float = 30.0) -> ExecResult:
+    def run(self, cmd: str, timeout: float = 30.0, shell: bool = True) -> ExecResult:
+        # shell is accepted for interface parity; the remote login shell always
+        # interprets the command line, so there is no no-shell mode over SSH.
         argv = self._base + [self.t.ssh_dest, "--", cmd]
         try:
             p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
@@ -100,7 +116,7 @@ class SSHExecutor(Executor):
                        capture_output=True, timeout=10)
 
 
-def make_executor(target: TargetConfig, agent_id: str) -> Executor:
+def make_executor(target: "Target", agent_id: str) -> Executor:
     # "external" probes a remote host over the network from THIS box (ping/curl/nc),
     # so it executes locally too — no SSH, no key. "local" is the self-test path.
     if target.mode in ("local", "external"):

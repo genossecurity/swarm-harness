@@ -1,9 +1,14 @@
 [project]
 name = "swarm-harness"
-version = "0.1.0"
-description = "Multi-agent swarm harness against a local llama.cpp gpt-oss endpoint"
+version = "0.2.0"
+description = "Two-layer pentest agent: an MCP tool layer (toolmcp) + a harness/RLHF layer (swarm, rlhf) against a local llama.cpp gpt-oss endpoint"
 requires-python = ">=3.11"
-dependencies = []                 # stdlib only: urllib for the LLM, OpenSSH for the target
+dependencies = []                 # core is stdlib only: urllib for the LLM, OpenSSH for the target
+
+[project.optional-dependencies]
+# RLHF training only — not needed to run the harness, the MCP layer, or the tests.
+train = ["trl>=0.12", "transformers", "datasets", "accelerate", "peft", "pyyaml"]
+review = ["argilla", "pyyaml"]    # offline preference-review UI
 
 [project.scripts]
 swarm = "swarm.cli:main"
@@ -13,4 +18,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["swarm"]
+# Two layers as distinct top-level packages: toolmcp (tools/sandbox/executor, the
+# MCP layer) and swarm + rlhf (the harness). The harness depends on toolmcp, never
+# the reverse.
+packages = ["swarm", "toolmcp", "rlhf", "rlhf.hitl", "rlhf.data", "rlhf.train"]

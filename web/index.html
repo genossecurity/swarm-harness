@@ -10,6 +10,7 @@
     --ink:#e7ecf5; --mut:#8a97ad; --accent:#5b8cff; --accent2:#9a6bff;
     --ok:#36c08a; --warn:#e5a53b; --bad:#e5604d;
     --run:#5b8cff; --tool:#3bb0e5; --propose:#9a6bff; --confirm:#36c08a; --vote:#e5a53b; --note:#8a97ad;
+    --dispatch:#e5a53b; --task:#3bb0e5;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -18,6 +19,9 @@
   header{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;
     align-items:center;gap:14px;background:var(--panel);position:sticky;top:0;z-index:5}
   header h1{font-size:15px;margin:0;letter-spacing:.3px}
+  header nav{display:flex;gap:6px;margin-left:12px}
+  header nav a{color:var(--mut);text-decoration:none;padding:5px 9px;border:1px solid var(--line);border-radius:7px;font-size:12px}
+  header nav a.active{color:var(--ink);border-color:var(--accent)}
   header .dot{width:9px;height:9px;border-radius:50%;background:var(--mut)}
   header .dot.live{background:var(--ok);box-shadow:0 0 0 0 rgba(54,192,138,.6);animation:pulse 1.4s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(54,192,138,.6)}70%{box-shadow:0 0 0 8px rgba(54,192,138,0)}100%{box-shadow:0 0 0 0 rgba(54,192,138,0)}}
@@ -89,6 +93,7 @@
   .item .hd{display:flex;align-items:center;gap:7px;margin-bottom:2px}
   .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:999px;color:#06101e}
   .b-run{background:var(--run)}.b-tool{background:var(--tool)}.b-propose{background:var(--propose)}.b-confirm{background:var(--confirm)}
+  .b-dispatch{background:#e5a53b}.b-task{background:#3bb0e5}
   .b-vote{background:var(--vote)}.b-note{background:var(--note)}
   .item .step{font-size:11px;color:var(--mut);margin-left:auto}
   .item .reason{color:var(--mut);font-size:12px}
@@ -156,6 +161,57 @@
   .hpill.conf{color:var(--ok);border:1px solid var(--ok);background:rgba(54,192,138,.12)}
   .hchip{font-size:10px;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:2px 7px}
 
+  /* dispatch board */
+  .dispgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+  .dcard{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--dispatch);border-radius:10px;padding:10px 12px;animation:gatein .25s ease}
+  .dcard.done{border-left-color:var(--ok)} .dcard.bad{border-left-color:var(--bad)}
+  .dtop{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .dname{font-size:13px;font-weight:600;line-height:1.3;word-break:break-word}
+  .dpill{margin-left:auto;flex:none;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:999px;color:var(--warn);border:1px solid var(--warn)}
+  .dpill.done{color:var(--ok);border-color:var(--ok);background:rgba(54,192,138,.12)}
+  .dpill.bad{color:var(--bad);border-color:var(--bad)}
+  .dmeta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+  .dchip{font-size:10px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:2px 7px}
+  .dchip.via{color:var(--task);border-color:var(--task)}
+  .dcmd{font-family:ui-monospace,monospace;font-size:11px;color:var(--mut);background:var(--panel);border-radius:6px;padding:5px 7px;margin:5px 0;white-space:pre-wrap;word-break:break-all}
+  .dres{font-size:12px;line-height:1.4;color:var(--ink);white-space:pre-wrap}
+  .dres.bad{color:var(--bad)}
+
+  /* milestone timeline */
+  .timeline{position:relative;padding-left:4px}
+  .ms{position:relative;display:grid;grid-template-columns:72px 24px 1fr;align-items:start;gap:4px;padding:4px 0;animation:gatein .25s ease}
+  .ms .mtime{font-family:ui-monospace,monospace;font-size:11px;color:var(--mut);padding-top:3px;text-align:right;padding-right:6px}
+  .ms .mrail{position:relative;display:flex;justify-content:center}
+  .ms .mrail::before{content:"";position:absolute;top:0;bottom:-8px;width:2px;background:var(--line)}
+  .ms:last-child .mrail::before{bottom:auto;height:11px}
+  .ms .mdot{position:relative;z-index:1;width:14px;height:14px;border-radius:50%;margin-top:2px;background:var(--panel);border:2px solid var(--accent);display:grid;place-items:center;font-size:8px}
+  .ms.k-plan .mdot{border-color:#9a6bff}.ms.k-dispatch .mdot{border-color:var(--dispatch)}
+  .ms.k-finding .mdot{border-color:var(--ok)}.ms.k-phase .mdot{border-color:var(--task)}
+  .ms.k-gate .mdot{border-color:var(--warn)}.ms.k-start .mdot,.ms.k-end .mdot{border-color:var(--accent)}
+  .ms .mbody{padding-bottom:4px}
+  .ms .mtitle{font-size:13px;font-weight:600;line-height:1.35}
+  .ms .msub{font-size:12px;color:var(--mut);line-height:1.4;margin-top:2px}
+  .ms .mgoal{font-size:12px;color:var(--ink);line-height:1.4;padding-left:2px}
+  .ms .mgoal::before{content:"◦ ";color:var(--mut)}
+
+  label.chk{display:flex;align-items:center;gap:7px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
+  label.chk input{width:auto;margin:0}
+
+  /* step checklist */
+  .clgrid{display:grid;gap:10px}
+  .clstep{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .clstep.cleared{border-color:var(--ok)}
+  .clhd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .clname{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .clprog{margin-left:auto;font-size:11px;color:var(--mut);font-family:ui-monospace,monospace}
+  .clitem{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:start;padding:4px 0;border-top:1px solid var(--line)}
+  .clitem:first-of-type{border-top:none}
+  .clbox{width:16px;height:16px;border-radius:4px;border:2px solid var(--mut);display:grid;place-items:center;font-size:11px;margin-top:2px;color:#06101e}
+  .clitem.met .clbox{background:var(--ok);border-color:var(--ok)}
+  .clgoal{font-size:13px;line-height:1.35}
+  .clitem.met .clgoal{color:var(--mut);text-decoration:line-through}
+  .clexp{font-size:11px;color:var(--mut);margin-top:2px}
+
   /* final results */
   .results{margin-bottom:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
   .results h2{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
@@ -181,6 +237,7 @@
 <header>
   <div class="dot" id="livedot"></div>
   <h1>SWARM · live brainstorming</h1>
+  <nav><a href="/">Simple</a><a class="active" href="/advanced">Advanced</a></nav>
   <div style="margin-left:auto;color:var(--mut);font-size:12px" id="hstat">idle</div>
 </header>
 
@@ -221,20 +278,8 @@
         <input id="model_name" value="gpt-oss:20b">
       </div>
       <div>
-        <label>Worker endpoint (2nd GPU) <span id="workerStatus" class="wstat"></span></label>
-        <div style="display:flex;gap:6px">
-          <input id="worker_base_url" value="http://192.168.2.16:11434/v1" style="flex:1">
-          <button type="button" class="addstep" id="checkWorker" style="margin:0;white-space:nowrap">↻ check</button>
-        </div>
-      </div>
-      <div>
-        <label>Worker model (small)</label>
-        <input id="worker_model" value="qwen2.5-coder:3b" placeholder="e.g. qwen2.5-coder:3b" list="workerModels">
-        <datalist id="workerModels"></datalist>
-      </div>
-      <div>
-        <label>Lead agents (on AMD)</label>
-        <input id="lead_agents" type="number" min="1" value="1">
+        <label title="Size the worker pool and pick each step's tools from the task, ignoring the agent counts above.">Auto-size agents &amp; tools</label>
+        <label class="chk"><input id="auto_scale" type="checkbox" checked> on — scale to the task</label>
       </div>
       <div class="ssh-only" style="display:none">
         <label>SSH user</label>
@@ -246,7 +291,7 @@
       </div>
     </div>
     <div class="stepsEditor">
-      <label>Steps — each runs in order; give each its own objective. The swarm pauses for your approval between steps.</label>
+      <label>Optional workflow steps — leave the objective blank to use the overall task. Add ordered steps when the task needs them; the swarm pauses for approval between steps.</label>
       <div id="steps"></div>
       <button type="button" class="addstep" id="addStep">+ Add step</button>
     </div>
@@ -265,6 +310,18 @@
       <div class="txt" id="taskText">—</div>
     </div>
     <div class="meta" id="taskMeta"></div>
+  </div>
+
+  <!-- MILESTONE TIMELINE (how the task progressed) -->
+  <div class="hive" id="tlWrap" style="display:none">
+    <h2>🗺️ Progress timeline — milestones in order</h2>
+    <div class="timeline" id="timeline"><div class="empty">Key milestones appear here in order: goals set, work assigned, findings recorded, steps cleared.</div></div>
+  </div>
+
+  <!-- STEP CHECKLIST (goals + expectations per step) -->
+  <div class="hive" id="clWrap" style="display:none">
+    <h2>✅ Step checklist — goals &amp; what we expect for each</h2>
+    <div class="clgrid" id="checklist"></div>
   </div>
 
   <!-- FINAL RESULTS -->
@@ -294,6 +351,12 @@
     <div class="hivegrid" id="hive"><div class="empty">Findings appear here as agents post them, shared across the whole swarm.</div></div>
   </div>
 
+  <!-- DISPATCH BOARD (manager → workers) -->
+  <div class="hive" id="dispWrap" style="display:none">
+    <h2>📋 Dispatch board — checks the manager handed to workers</h2>
+    <div class="dispgrid" id="dispboard"><div class="empty">The manager dispatches checks here; each card shows the worker that ran it and its result.</div></div>
+  </div>
+
   <!-- AGENTS -->
   <div class="agents" id="agentgrid"></div>
 
@@ -320,13 +383,11 @@ $('#mode').addEventListener('click',e=>{
 });
 
 /* steps editor — each step has a name, its own objective, and its own tools */
-const DEFAULT_STEPS=[
-  {name:'explore', task:'Find what ports are open on the target'},
-  {name:'verify',  task:'Confirm the open ports and identify the service on each'},
-];
+// Start with one task-driven phase. Users can add ordered steps when the task needs them.
+const DEFAULT_STEPS=[{name:'task', task:''}];
 let TOOLS=[];
 function toolChips(selected){
-  const wrap=el('div','stools'); wrap.append(el('span','lbl','tools:'));
+  const wrap=el('div','stools'); wrap.append(el('span','lbl','allowed tools (empty = automatic):'));
   TOOLS.forEach(t=>{
     const c=el('span','tchip'+(selected.has(t.name)?' on':''), t.name);
     c.title=t.description+' — args: '+t.params.join(', ');
@@ -341,11 +402,11 @@ function addStepRow(step){
   const n=$('#steps').children.length+1;
   top.append(el('div','num',String(n)));
   const name=el('input','sname'); name.placeholder='step name'; name.value=(step&&step.name)||'step'+n;
-  const obj=el('input','sobj'); obj.placeholder='objective for this step'; obj.value=(step&&step.task)||'';
+  const obj=el('input','sobj'); obj.placeholder='objective (blank = overall task)'; obj.value=(step&&step.task)||'';
   const rm=el('button','rm','×'); rm.type='button';
   rm.onclick=()=>{ if($('#steps').children.length>1){ row.remove(); renumberSteps(); } };
   top.append(name,obj,rm); row.append(top);
-  const sel = step&&step.tools ? new Set(step.tools) : new Set(TOOLS.map(t=>t.name)); // default: all tools
+  const sel = new Set((step&&step.tools)||[]); // empty means automatic task-based tool selection
   row.append(toolChips(sel));
   $('#steps').append(row);
 }
@@ -361,32 +422,6 @@ $('#addStep').addEventListener('click', ()=>addStepRow());
 fetch('/tools').then(r=>r.json()).then(t=>{TOOLS=t; DEFAULT_STEPS.forEach(addStepRow);})
   .catch(()=>DEFAULT_STEPS.forEach(addStepRow));
 
-/* worker endpoint: check reachability + list its models into the picker */
-function checkWorker(){
-  const url=$('#worker_base_url').value.trim();
-  const s=$('#workerStatus');
-  if(!url){ s.textContent=''; return; }
-  s.textContent='checking…'; s.className='wstat';
-  fetch('/worker_models?url='+encodeURIComponent(url)).then(r=>r.json()).then(j=>{
-    if(j.ok){
-      s.textContent='✓ reachable · '+j.models.length+' models'; s.className='wstat ok';
-      const dl=$('#workerModels'); dl.innerHTML='';
-      j.models.forEach(m=>{const o=document.createElement('option');o.value=m;dl.append(o);});
-      if(!$('#worker_model').value && j.models.length){
-        const chat=j.models.filter(m=>!/embed/i.test(m));           // skip embedding models
-        const sz=m=>{const x=/(\d+(?:\.\d+)?)\s*b/i.exec(m); return x?parseFloat(x[1]):999;};
-        const small=chat.slice().sort((a,b)=>sz(a)-sz(b))[0]||j.models[0];  // smallest = fastest for checks
-        $('#worker_model').value=small;
-      }
-    } else {
-      s.textContent='✗ '+(j.hint||j.error||'unreachable'); s.className='wstat bad'; s.title=j.error||'';
-    }
-  }).catch(e=>{ s.textContent='✗ check failed'; s.className='wstat bad'; });
-}
-$('#checkWorker').addEventListener('click', checkWorker);
-$('#worker_base_url').addEventListener('change', checkWorker);
-checkWorker();   // probe on load so the picker fills if the worker is already up
-
 let agents={}, props={}, phases=[], phaseIdx=0, votes={}, es=null;
 
 function resetView(cfg){
@@ -396,6 +431,11 @@ function resetView(cfg){
   $('#results').style.display='none'; $('#gate').style.display='none';
   hive={}; $('#hiveWrap').style.display='block';
   $('#hive').innerHTML='<div class="empty">Findings appear here as agents post them, shared across the whole swarm.</div>';
+  dboard={}; $('#dispWrap').style.display='none';
+  $('#dispboard').innerHTML='<div class="empty">The manager dispatches checks here; each card shows the worker that ran it and its result.</div>';
+  mstones=0; lastMsSig=''; $('#tlWrap').style.display='none';
+  $('#timeline').innerHTML='<div class="empty">Key milestones appear here in order: goals set, work assigned, findings recorded, steps cleared.</div>';
+  checklists={}; $('#clWrap').style.display='none'; $('#checklist').innerHTML='';
   $('#taskText').textContent = cfg.task || '(no task)';
   $('#taskMeta').innerHTML = `${cfg.agents} agents · ${mode} · ${cfg.target_mode||mode}<br>${cfg.model} @ ${cfg.base_url.replace('http://','')}`;
   $('#summary').className='summary';
@@ -441,11 +481,19 @@ function addItem(id,ev){
   const it=el('div','item'); it.style.borderLeftColor=`var(--${ev.action})`;
   const hd=el('div','hd');
   const b=el('span','badge b-'+ev.action, ev.action); hd.append(b);
-  hd.append(el('span','step','step '+ev.step+' · '+ev.phase));
+  hd.append(el('span','step',(ev.step!=null?('step '+ev.step+' · '):'')+(ev.phase||'')));
   it.append(hd);
   if(ev.reason) it.append(el('div','reason', ev.reason));
   const r=ev.result||{};
-  if(ev.action==='run'||ev.action==='tool'||ev.action==='confirm'){
+  if(ev.action==='dispatch'){
+    const checks=(r.tasks||[]).map(t=>t.tool||('“'+(t.check||'')+'”')).join(', ') || (r.skipped?('skipped: '+r.skipped):'');
+    it.append(el('div','res', '📋 dispatched: '+checks));
+  } else if(ev.action==='task'){
+    if(r.instruction) it.append(el('div','reason','“'+r.instruction+'”'));
+    if(r.tool) it.append(el('div','reason','🔧 '+r.tool+' ('+(ev.via||'')+')'));
+    if(r.cmd) it.append(el('div','cmd','$ '+r.cmd));
+    if(r.digest||r.error) it.append(el('div','res '+(r.rc===0?'ok':r.error?'bad':''), r.digest||r.error));
+  } else if(ev.action==='run'||ev.action==='tool'||ev.action==='confirm'){
     if(r.tool) it.append(el('div','reason','🔧 '+r.tool+(r.error?' — '+r.error:'')));
     if(r.cmd) it.append(el('div','cmd','$ '+r.cmd));
     const digest = r.digest!=null ? r.digest : (r.status||'');
@@ -507,6 +555,155 @@ function updateProposal(pid,supports,by,status){
   if(counted) hiveConfirm(pid, by);
 }
 
+/* milestone timeline — a curated, ordered narrative of how the task progressed.
+   Shows milestones only (goals, assignments, findings, step changes), not raw per-check events. */
+let mstones=0, lastMsSig='';
+function fmtTime(ts){
+  const d = ts ? new Date(ts*1000) : new Date();
+  return d.toTimeString().slice(0,8);
+}
+function milestone(kind, ts, title, opts){
+  opts = opts||{};
+  const sig = kind+'|'+title+'|'+(opts.sub||'')+'|'+((opts.goals||[]).join('¦'));
+  if(sig===lastMsSig) return;            // collapse an identical consecutive milestone
+  lastMsSig=sig;
+  const empty=$('#timeline .empty'); if(empty)empty.remove();
+  $('#tlWrap').style.display='block';
+  const row=el('div','ms k-'+kind);
+  row.append(el('div','mtime', fmtTime(ts)));
+  const rail=el('div','mrail'); rail.append(el('div','mdot', opts.icon||'')); row.append(rail);
+  const body=el('div','mbody');
+  body.append(el('div','mtitle', title));
+  if(opts.sub) body.append(el('div','msub', opts.sub));
+  (opts.goals||[]).forEach(g=>body.append(el('div','mgoal', g)));
+  row.append(body);
+  $('#timeline').append(row);
+  mstones++;
+  row.scrollIntoView({block:'nearest'});
+}
+/* Translate a stream event into a milestone, or ignore it if it isn't one. */
+function timelineEvent(ev){
+  const ts=ev.ts;
+  if(ev.event==='run_start'){ milestone('start',ts,'Run started',{icon:'▶',sub:ev.config&&ev.config.task?('Task: '+ev.config.task):''}); return; }
+  if(ev.event==='scaling'){
+    milestone('start',ts,'Auto-sized the team',{icon:'⚖',sub:ev.reason||((ev.leads||1)+' lead + '+(ev.workers||0)+' workers')}); return;
+  }
+  if(ev.event==='roster'){
+    const n=(ev.agents||[]).length, w=Math.max(0,n-1);
+    milestone('start',ts,'Team assembled',{icon:'👥',sub:`1 manager + ${w} worker${w===1?'':'s'}`}); return;
+  }
+  if(ev.event==='phase_gate'){ milestone('gate',ts,'Awaiting approval',{icon:'⏸',sub:`move to “${ev.to}”?`}); return; }
+  if(ev.event==='phase_blocked'){ milestone('phase',ts,'Step blocked',{icon:'⚠',sub:ev.reason||'Goals remain unmet'}); return; }
+  if(ev.event==='phase_advanced'){
+    if(ev.done||ev.phase==='complete'){ milestone('phase',ts,'All steps complete',{icon:'✓'}); return; }
+    milestone('phase',ts,'Moved on to “'+ev.phase+'”',{icon:'→'}); return;
+  }
+  if(ev.event==='run_end'){
+    const nf=(ev.findings&&ev.findings.length)||ev.findings_count||0;
+    milestone('end',ts,ev.all_phases_done?'Run complete':'Run incomplete',
+      {icon:ev.all_phases_done?'🏁':'⚠',sub:nf?(nf+' finding'+(nf===1?'':'s')+' recorded'):''}); return;
+  }
+  if(!ev.action) return;
+  if(ev.action==='plan'){
+    const g=((ev.result&&ev.result.goals)||[]).map(x=> typeof x==='string' ? x
+      : (x.goal + (x.expect ? ('  →  expect: '+x.expect) : '')));
+    milestone('plan',ts, 'Goals set'+(ev.phase?(' for “'+ev.phase+'”'):''), {icon:'🧭',goals:g}); return;
+  }
+  if(ev.action==='dispatch'){
+    const r=ev.result||{}; if(!(r.dispatched&&r.dispatched.length)) return;   // skip no-op/duplicate dispatches
+    const names=(r.tasks||[]).map(t=>t.tool||('“'+(t.check||'check')+'”'));
+    const n=r.dispatched.length;
+    milestone('dispatch',ts,`Assigned ${n} check${n===1?'':'s'} to the pool`,{icon:'📋',sub:names.join(', ')}); return;
+  }
+  if(ev.action==='propose'){
+    const claim=(ev.result&&ev.result.claim)||'';
+    milestone('finding',ts,'Finding recorded',{icon:'💡',sub:claim}); return;
+  }
+  // task / vote / note are granular — they live in the feeds + dispatch board, not the milestone timeline.
+}
+
+/* step checklist — goals + expectations per step, ticked as findings satisfy them */
+let checklists={};  // phase -> {card, items}
+function renderChecklist(ev){
+  const phase=ev.phase, goals=ev.goals||[];
+  if(!phase) return;
+  $('#clWrap').style.display='block';
+  let c=checklists[phase];
+  if(!c){
+    const card=el('div','clstep');
+    const hd=el('div','clhd');
+    hd.append(el('div','clname', phase));
+    const prog=el('div','clprog',''); hd.append(prog);
+    card.append(hd);
+    const body=el('div','clbody'); card.append(body);
+    $('#checklist').append(card);
+    c=checklists[phase]={card,body,prog};
+  }
+  c.body.innerHTML='';
+  let met=0;
+  goals.forEach(g=>{
+    if(g.met) met++;
+    const it=el('div','clitem'+(g.met?' met':''));
+    const box=el('div','clbox', g.met?'✓':''); it.append(box);
+    const txt=el('div');
+    txt.append(el('div','clgoal', g.goal));
+    if(g.expect) txt.append(el('div','clexp','Evidence needed: '+g.expect));
+    if(!g.met&&g.status) txt.append(el('div','clexp',g.status));
+    it.append(txt);
+    c.body.append(it);
+  });
+  c.prog.textContent=met+'/'+goals.length+' met';
+  c.card.classList.toggle('cleared', goals.length>0 && met===goals.length);
+}
+
+/* dispatch board — manager posts checks, workers fill in results */
+let dboard={};
+function dispatchAdd(ev){
+  const r=ev.result||{}; const ids=r.dispatched||[]; const tasks=r.tasks||[];
+  if(!ids.length) return;
+  const empty=$('#dispboard .empty'); if(empty)empty.remove();
+  $('#dispWrap').style.display='block';
+  ids.forEach((tid,i)=>{
+    if(dboard[tid]) return;
+    const t=tasks[i]||{};
+    const card=el('div','dcard');
+    const top=el('div','dtop');
+    top.append(el('div','dname', t.tool || ('“'+(t.check||'check')+'”')));
+    const pill=el('div','dpill','queued'); top.append(pill);
+    card.append(top);
+    const meta=el('div','dmeta');
+    (t.toolkit||[]).forEach(k=>meta.append(el('span','dchip',k)));
+    if(meta.childElementCount) card.append(meta);
+    $('#dispboard').append(card);
+    dboard[tid]={card,pill,meta};
+  });
+}
+function dispatchComplete(ev){
+  const tid=ev.task; if(!tid) return;
+  let d=dboard[tid];
+  if(!d){                                   // a task completing before we saw its dispatch
+    const empty=$('#dispboard .empty'); if(empty)empty.remove();
+    $('#dispWrap').style.display='block';
+    const card=el('div','dcard'); const top=el('div','dtop');
+    top.append(el('div','dname','check')); const pill=el('div','dpill','queued');
+    top.append(pill); card.append(top);
+    const meta=el('div','dmeta'); card.append(meta);
+    $('#dispboard').append(card); d=dboard[tid]={card,pill,meta};
+  }
+  const r=ev.result||{};
+  const bad = r.error || (r.rc!=null && r.rc!==0);
+  d.card.classList.add(bad?'bad':'done');
+  d.pill.className='dpill '+(bad?'bad':'done'); d.pill.textContent = bad?'error':'done';
+  if(r.tool && d.card.querySelector('.dname').textContent==='check')
+    d.card.querySelector('.dname').textContent=r.tool;
+  d.meta.append(el('span','dchip',ev.agent||'worker'));
+  if(ev.via) d.meta.append(el('span','dchip via', ev.via));
+  if(r.cmd){ d.card.querySelector('.dcmd')||d.card.append(el('div','dcmd','$ '+r.cmd)); }
+  const text=r.digest||r.error||'';
+  let res=d.card.querySelector('.dres'); if(!res){ res=el('div','dres'); d.card.append(res); }
+  res.className='dres'+(bad?' bad':''); res.textContent=text;
+}
+
 /* hive mind — a live shared board of findings as agents post them */
 let hive={};
 function agentIdx(id){ const m=/agent-(\d+)/.exec(id||''); return m?+m[1]:0; }
@@ -538,15 +735,27 @@ function hiveConfirm(pid, by){
 
 let taskText='';
 function onEvent(ev){
-  if(ev.event==='run_start'){ taskText=ev.config.task||''; resetView(ev.config); setLive(true); return; }
+  if(ev.event==='run_start'){ taskText=ev.config.task||''; resetView(ev.config); setLive(true); timelineEvent(ev); return; }
+  timelineEvent(ev);   // curate milestones (after reset so run_start's isn't wiped)
   if(ev.event==='tools'){ showTools(ev.available||[]); return; }
   if(ev.event==='roster'){ applyRoster(ev.agents); return; }
-  if(ev.event==='worker_unreachable'){ $('#err').textContent='⚠ worker model unreachable ('+(ev.detail||'')+') — using lead model for all agents'; return; }
+  if(ev.event==='agent_spawned'){
+    const id=ev.agent, i=parseInt((String(id).match(/\d+/)||[0])[0],10)||0;
+    if(!agents[id]) makeAgent(id,i);
+    applyRoster([{id, role:ev.role||'worker', model:ev.model||''}]);
+    milestone('start', ev.ts, 'Worker added on demand',
+      {icon:'➕', sub:id+' — pool now '+(ev.workers!=null?ev.workers:'?')+(ev.cap?(' / '+ev.cap+' max'):'')+' workers'});
+    return;
+  }
+  if(ev.event==='phase_blocked'){ $('#err').textContent='⚠ Step “'+(ev.phase||'')+'” did not complete: '+(ev.reason||'goals remain unmet'); return; }
   if(ev.event==='phase_gate'){ showGate(ev); return; }
   if(ev.event==='phase_advanced'){ clearGate(); advancePhase(ev); return; }
   if(ev.event==='run_error'){ $('#err').textContent='⚠ '+(ev.error||ev.detail||'run error'); return; }
   if(ev.event==='run_end'){ clearGate(); showSummary(ev); showResults(ev); return; }
+  if(ev.event==='checklist'){ renderChecklist(ev); return; }
   if(ev.event==='eos'){ setLive(false); if(es){es.close();es=null;} return; }
+  if(ev.action==='dispatch') dispatchAdd(ev);
+  else if(ev.action==='task') dispatchComplete(ev);
   if(ev.agent && ev.action) addItem(ev.agent, ev);
 }
 function showGate(ev){
@@ -572,17 +781,17 @@ function showTools(t){ toolsAvail=t; const m=$('#taskMeta');
 function showSummary(s){
   const box=$('#summary');
   box.className='summary show '+(s.all_phases_done?'good':'bad');
-  box.innerHTML = `<b>Run ${s.stopped?'stopped':'finished'}</b> in ${s.wall_s}s · `+
+  box.innerHTML = `<b>Run ${s.all_phases_done?'finished':(s.stopped?'stopped':'incomplete')}</b> in ${s.wall_s}s · `+
     `phases ${s.phases_cleared}/${s.phases_total} · proposals ${s.proposals} `+
     `(<b>${s.confirmed} confirmed</b>) · turns ${s.total_turns} · retry-rate ${s.retry_rate}`;
 }
 function showResults(s){
   const box=$('#results'); const findings=s.findings||[]; const good=findings.length>0;
-  box.style.display='block'; box.className='results '+(good?'good':'bad');
+  box.style.display='block'; box.className='results '+(good&&s.all_phases_done?'good':'bad');
   const v=$('#verdict');
-  v.innerHTML = good
+  v.innerHTML = good && s.all_phases_done
     ? `<span class="ic">✓</span><span>Task accomplished — ${findings.length} finding${findings.length>1?'s':''} confirmed by consensus</span>`
-    : `<span class="ic">⚠</span><span>${s.stopped?'Stopped':'Ended'} without a consensus-confirmed finding</span>`;
+    : `<span class="ic">⚠</span><span>${good?'Partial results — workflow incomplete':(s.stopped?'Stopped':'Ended without a consensus-confirmed finding')}</span>`;
   const f=$('#findings'); f.innerHTML='';
   if(taskText){ const t=el('div',null); t.style.cssText='color:var(--mut);font-size:12px;margin-bottom:10px';
     t.innerHTML='for task: <span style="color:var(--ink)">'+esc(taskText)+'</span>'; f.append(t); }
@@ -619,8 +828,7 @@ $('#start').addEventListener('click', async ()=>{
     task:$('#task').value, mode, agents:$('#agents').value, target:$('#target').value,
     steps:collectSteps(), max_steps:$('#max_steps').value,
     base_url:$('#base_url').value, model_name:$('#model_name').value,
-    worker_base_url:$('#worker_base_url').value, worker_model:$('#worker_model').value,
-    lead_agents:$('#lead_agents').value,
+    auto_scale:$('#auto_scale').checked,
     target_user:$('#target_user').value, target_key:$('#target_key').value,
   };
   connect();
@@ -628,12 +836,14 @@ $('#start').addEventListener('click', async ()=>{
   const j=await r.json();
   if(!j.ok){ $('#err').textContent='⚠ '+j.error; }
 });
+$('#base_url').addEventListener('change', ()=>localStorage.setItem('swarm_base_url', $('#base_url').value.trim()));
+$('#model_name').addEventListener('change', ()=>localStorage.setItem('swarm_model_name', $('#model_name').value.trim()));
 function doStop(){ $('#stop').disabled=true; $('#hstat').textContent='stopping…'; fetch('/stop',{method:'POST'}); clearGate(); }
 function clearSession(){
   if(!$('#stop').disabled) fetch('/stop',{method:'POST'});   // stop a live run first
-  agents={}; props={}; hive={}; phases=[]; phaseIdx=0; votes={}; taskText='';
-  $('#agentgrid').innerHTML=''; $('#hive').innerHTML=''; $('#props').innerHTML='';
-  ['taskbanner','hiveWrap','consensusWrap','results','gate'].forEach(id=>$('#'+id).style.display='none');
+  agents={}; props={}; hive={}; dboard={}; mstones=0; lastMsSig=''; checklists={}; phases=[]; phaseIdx=0; votes={}; taskText='';
+  $('#agentgrid').innerHTML=''; $('#hive').innerHTML=''; $('#props').innerHTML=''; $('#dispboard').innerHTML=''; $('#timeline').innerHTML=''; $('#checklist').innerHTML='';
+  ['taskbanner','tlWrap','clWrap','hiveWrap','dispWrap','consensusWrap','results','gate'].forEach(id=>$('#'+id).style.display='none');
   $('#summary').className='summary';
   $('#livedot').classList.remove('live'); $('#hstat').textContent='idle';
   $('#start').disabled=false; $('#stop').disabled=true; $('#err').textContent='';

@@ -9,9 +9,9 @@ import json
 from .client import LLMClient, TurnResult
 from .compress import compress
 from .config import RunConfig
-from .executor import Executor
+from toolmcp.executor import Executor
 from .protocol import Action
-from .tools import ToolError, build_command, render_tools, tools_for_step
+from toolmcp.tools import BUILTIN_TOOLS, ToolError, build_command, render_tools, tools_for_step
 from .whiteboard import Whiteboard
 
 LEAD_SYSTEM = (
@@ -46,7 +46,7 @@ class Agent:
         self.emit = emit          # callback(event_dict) -> appends to run.jsonl
         self.available_tools: list[str] = []   # probing tools detected on the host (set by orchestrator)
         self.stop_event = None    # threading.Event set by the orchestrator to end the run
-        self.role = "lead"        # "lead" (strong model) or "worker" (one-liner checks on the small model)
+        self.role = "lead"        # orchestration role; all roles share the configured model
         self.model_label = ""     # e.g. "gpt-oss:20b @ localhost" — for logging/UI
         self._sigcount: dict[str, int] = {}   # how often this agent has run each check (per phase)
         self.steps = 0
@@ -87,8 +87,8 @@ class Agent:
             head += tool_doc + "\n\n"
 
         if self.role == "worker":
-            # Workers do one-liner checks on a small model: give them a short, low-ambiguity
-            # context (no big STATE dump) so their JSON stays reliable and fast.
+            # Workers do one-liner checks: give them a short, low-ambiguity context
+            # (no big STATE dump) so their JSON stays focused.
             import re as _re
             unconf = [f for f in findings if f.endswith("(unconfirmed)")]
             if unconf:
@@ -155,7 +155,8 @@ class Agent:
             except ToolError as e:
                 self.board.add_note(self.aid, f"tool error: {e}")
                 return {"error": str(e), "tool": a.tool}
-            res = self.ex.run(cmd)
+            timeout = BUILTIN_TOOLS[tool].timeout if tool else 30.0
+            res = self.ex.run(cmd, timeout=timeout)
             digest = compress(res)
             self.board.add_run(self.aid, cmd, digest)
             return {"cmd": cmd, "tool": tool, "rc": res.rc, "digest": digest}
@@ -169,7 +170,8 @@ class Agent:
                 self.board.add_note(self.aid, f"tool error: {e}")
                 return {"target_proposal": a.confirm, "error": str(e), "supports": False,
                         "status": f"tool error: {e}"}
-            res = self.ex.run(cmd)
+            timeout = BUILTIN_TOOLS[tool].timeout if tool else 30.0
+            res = self.ex.run(cmd, timeout=timeout)
             digest = compress(res)
             supports = res.rc == 0 and not res.timed_out
             status = self.board.add_confirmation(self.aid, a.confirm, digest, supports)
