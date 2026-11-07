@@ -32,7 +32,7 @@ reverse — so the same sandboxed tools can be exposed to any MCP client (Claude
 Code included) once the stdio server lands. The RLHF pipeline reuses the harness
 LLM client (`swarm.client`) and the tool layer's sandbox, so there is one HTTP
 client and one execution/enforcement path, not duplicates. See `rlhf/README.md`
-for the training loop and `pentest-agent-unified.pdf` for the merged design.
+for the training loop and `docs/pentest-platform.pdf` for the merged design.
 
 Everything runs stdlib-only and offline: `python -m unittest discover -s tests`
 (129 tests — harness + tool layer + RLHF).
